@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.python-version
+
+# Project data (rebuildable)
+data/
+runs/
+wandb/
+
+# Stray binaries
+*.pt
+*.pkl
+*.json.gz
+*.csv.gz
+
+# OS / editor
+.DS_Store
+.idea/
+.ipynb_checkpoints/
+
+# Env
+.env
