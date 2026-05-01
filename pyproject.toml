@@ -1,0 +1,27 @@
+[project]
+name = "gnome-repro"
+version = "0.1.0"
+description = "Reproducing the GNoME structural GNN at small scale."
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.2",
+  "tqdm>=4.66",
+  "pyyaml>=6.0",
+  "python-dotenv>=1.0",
+  "pymatgen>=2024.10",
+  "matbench-discovery>=1.3",
+]
+[project.optional-dependencies]
+ml = [
+  # (CUDA-specific) before this group. However, PyG 2.6+ has built-in scatter ops, so --  torch_scatter / torch_sparse / torch_cluster separately is no longer required. 
+  "torch-geometric>=2.6",
+  "wandb>=0.18",
+]
+
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
