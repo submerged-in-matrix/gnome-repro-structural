@@ -1,0 +1,26 @@
+# Default training configuration. Mirrors GNoME paper architectural choices,
+# scaled-down epoch count for single-GPU laptop-class training.
+
+run_name: default
+
+# Architecture
+hidden_dim: 256
+n_layers: 3
+
+# Optimization
+epochs: 200
+batch_size: 128
+lr: 5.5e-4
+lr_end_factor: 0.1
+grad_clip: 1.0
+early_stop_patience: 30
+
+# Subsets (null = full dataset)
+train_subset: null
+test_subset: null
+
+# System
+device: cuda
+seed: 0
+num_workers: 0
+log_every: 1
