@@ -4,9 +4,9 @@ Reads the two Matbench Discovery MP files from ${GNOME_DATA_DIR}/raw/
 (downloaded by scripts/download_data.py) and assigns each material
 to train or test based on a deterministic hash of its reduced formula.
 
-do NOT import matbench_discovery here. because Its eager
-top-level imports of WBM files are fragile and unnecessary for training :xD.
-import matbench_discovery only when packaging WBM predictions
+We deliberately do NOT import matbench_discovery here. Its eager
+top-level imports of WBM files are fragile and unnecessary for training.
+We will import matbench_discovery only when packaging WBM predictions
 for leaderboard submission (Phase 3).
 """
 from __future__ import annotations
@@ -26,11 +26,19 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 load_dotenv()
 
-DATA_DIR = Path(os.environ.get("GNOME_DATA_DIR", "./data"))
+# Resolve GNOME_DATA_DIR robustly:
+#   - Absolute path → used as-is
+#   - Relative path → resolved against the repo root (parent of src/)
+# Reason: notebook kernels and scripts launch with different CWDs;
+#         relative paths against CWD silently break.
+_REPO_ROOT = Path(__file__).resolve().parents[2]   # src/gnome/data.py → repo root
+_raw_data_dir = os.environ.get("GNOME_DATA_DIR", "./data")
+DATA_DIR = Path(_raw_data_dir)
+if not DATA_DIR.is_absolute():
+    DATA_DIR = (_REPO_ROOT / DATA_DIR).resolve()
 RAW_DIR = DATA_DIR / "raw"
-
-ENERGIES_CSV = RAW_DIR / "2023-02-07-mp-energies.csv"
-STRUCTURES_JSON = RAW_DIR / "2023-02-07-mp-computed-structure-entries.json.bz2"
+ENERGIES_CSV = RAW_DIR / "2023-01-10-mp-energies.csv"
+STRUCTURES_JSON = RAW_DIR / "2023-02-07-mp-computed-structure-entries.json"
 
 
 # -----------------------------------------------------------------------------
@@ -99,23 +107,38 @@ def iter_mp_entries() -> Iterator[dict]:
     with _open_maybe_compressed(STRUCTURES_JSON) as f:
         raw = json.load(f)
 
-    if isinstance(raw, dict):
-        raw = raw.get("data", raw.get("entries", list(raw.values())))
+    # The Matbench Discovery v1 (which was manually downloaded though!!)  structures file is a column-oriented dataframe
+    # dump: raw['material_id'] and raw['entry'] are parallel dicts keyed by row index strings ('0', '1', ...). We zip them.
+    
+    if not isinstance(raw, dict) or "material_id" not in raw or "entry" not in raw:
+        raise RuntimeError(
+            f"Unexpected JSON shape in {STRUCTURES_JSON}. "
+            f"Top-level keys: {list(raw.keys()) if isinstance(raw, dict) else type(raw).__name__}"
+        )
 
-    for d in raw:
-        try:
-            entry = ComputedStructureEntry.from_dict(d)
-        except Exception:
-            continue
-        mid = entry.entry_id
+    id_by_idx = raw["material_id"]
+    entry_by_idx = raw["entry"]
+
+    for idx in id_by_idx:
+        mid = id_by_idx[idx]
         if mid not in energies_df.index:
             continue
+        try:
+            entry = ComputedStructureEntry.from_dict(entry_by_idx[idx])
+        except Exception:
+            continue
         row = energies_df.loc[mid]
+        formula = row["formula"]
+        e_form = row[e_col]
+        # Filter: NaN formula or NaN energy → unparseable, skip.
+        # Reason: pandas reads missing CSV cells as float NaN.
+        if not isinstance(formula, str) or pd.isna(e_form):
+            continue
         yield {
             "material_id": mid,
             "structure": entry.structure,
-            "formula_pretty": row["formula_pretty"],
-            "e_form_per_atom": float(row[e_col]),
+            "formula_pretty": formula,
+            "e_form_per_atom": float(e_form),
         }
 
 
