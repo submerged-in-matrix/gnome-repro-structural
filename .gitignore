@@ -7,7 +7,6 @@ __pycache__/
 
 # Project data (rebuildable)
 data/
-runs/
 wandb/
 
 # Stray binaries
@@ -23,3 +22,6 @@ wandb/
 
 # Env
 .env
+
+.venv
+.venv*
