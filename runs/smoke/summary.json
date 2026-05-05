@@ -1,0 +1,9 @@
+{
+  "run_name": "smoke",
+  "best_test_mae_eV_per_atom": 0.3419778633117676,
+  "best_test_mae_meV_per_atom": 341.9778633117676,
+  "final_epoch": 4,
+  "n_train": 2000,
+  "n_test": 500,
+  "n_params": 2209793
+}
