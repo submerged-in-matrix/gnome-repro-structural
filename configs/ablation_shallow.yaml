@@ -1,0 +1,19 @@
+# Ablation B3: one fewer message-passing layer.
+# All other settings identical to default.yaml.
+
+run_name: ablation_shallow
+hidden_dim: 256
+n_layers: 2
+epochs: 200
+batch_size: 128
+lr: 5.5e-4
+lr_end_factor: 0.1
+grad_clip: 1.0
+early_stop_patience: 30
+train_subset: null
+test_subset: null
+device: cuda
+seed: 0
+num_workers: 0
+log_every: 1
+use_adj_norm: true

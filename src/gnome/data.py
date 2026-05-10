@@ -1,13 +1,9 @@
 """Data loading and split utilities for GNoME reproduction.
 
 Reads the two Matbench Discovery MP files from ${GNOME_DATA_DIR}/raw/
-(downloaded by scripts/download_data.py) and assigns each material
+(downloaded manually since auto download requires active session ID) and assigns each material
 to train or test based on a deterministic hash of its reduced formula.
 
-We deliberately do NOT import matbench_discovery here. Its eager
-top-level imports of WBM files are fragile and unnecessary for training.
-We will import matbench_discovery only when packaging WBM predictions
-for leaderboard submission (Phase 3).
 """
 from __future__ import annotations
 
