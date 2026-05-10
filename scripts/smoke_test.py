@@ -24,9 +24,20 @@ cfg = TrainConfig(
     log_every=1,
 )
 
+# cfg_no_norm = TrainConfig(
+#     run_name="smoke_no_norm",
+#     epochs=5,
+#     batch_size=64,
+#     train_subset=2000,
+#     test_subset=500,
+#     early_stop_patience=999,
+#     log_every=1,
+#     use_adj_norm=False,
+# )
 
 if __name__ == "__main__":
     summary = fit(cfg)
+    #summary_no_norm = fit(cfg_no_norm)
     print("\n=== Smoke test passed ===")
     print(f"Loss should have decreased over 5 epochs.")
     print(f"Final test MAE: {summary['best_test_mae_meV_per_atom']:.1f} meV/atom")
