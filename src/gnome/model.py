@@ -47,8 +47,9 @@ class GNoMEBlock(nn.Module):
     minus per-graph batching subtleties handled outside.
     """
 
-    def __init__(self, hidden_dim: int, avg_adjacency: float):
+    def __init__(self, hidden_dim: int, avg_adjacency: float, use_adj_norm: bool = True):
         super().__init__()
+        self.use_adj_norm = use_adj_norm
         # Edge update: takes (src_node, dst_node, edge) -> new edge.
         self.edge_mlp = MLP(3 * hidden_dim, hidden_dim, hidden_dim)
         # Node update: takes (current_node, aggregated_edges, global) -> new node.
@@ -82,7 +83,8 @@ class GNoMEBlock(nn.Module):
         edge_messages = scatter(
             edge_attr_new, dst, dim=0, dim_size=x.size(0), reduce="sum"
         )
-        edge_messages = edge_messages / self.avg_adjacency
+        if self.use_adj_norm:
+            edge_messages = edge_messages / self.avg_adjacency
 
         # Node update: concatenate current node, aggregated edge messages,
         # and the per-graph global feature broadcast to each atom.
@@ -115,6 +117,7 @@ class GNoMEStructural(nn.Module):
         edge_dim: int = DEFAULT_EDGE_DIM,
         hidden_dim: int = DEFAULT_HIDDEN_DIM,
         n_layers: int = DEFAULT_N_LAYERS,
+        use_adj_norm: bool = True,
     ):
         super().__init__()
         self.hidden_dim = hidden_dim
@@ -128,7 +131,7 @@ class GNoMEStructural(nn.Module):
         self.global_init = nn.Parameter(torch.zeros(hidden_dim))
         # Stack of message-passing blocks.
         self.blocks = nn.ModuleList(
-            [GNoMEBlock(hidden_dim, avg_adjacency) for _ in range(n_layers)]
+            [GNoMEBlock(hidden_dim, avg_adjacency, use_adj_norm) for _ in range(n_layers)]
         )
         # Readout: scalar prediction from final global feature.
         self.readout = nn.Linear(hidden_dim, 1)

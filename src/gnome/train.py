@@ -31,6 +31,7 @@ class TrainConfig:
     # Architecture
     hidden_dim: int = 256
     n_layers: int = 3
+    use_adj_norm: bool = True
 
     # Optimization
     epochs: int = 200
@@ -97,6 +98,7 @@ def fit(cfg: TrainConfig) -> dict:
         avg_adjacency=stats["avg_adjacency"],
         hidden_dim=cfg.hidden_dim,
         n_layers=cfg.n_layers,
+        use_adj_norm=cfg.use_adj_norm,
     ).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"  model params: {n_params:,}")
