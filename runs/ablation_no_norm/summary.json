@@ -1,0 +1,9 @@
+{
+  "run_name": "ablation_no_norm",
+  "best_test_mae_eV_per_atom": 0.025437046255190783,
+  "best_test_mae_meV_per_atom": 25.437046255190783,
+  "final_epoch": 199,
+  "n_train": 129754,
+  "n_test": 23248,
+  "n_params": 2209793
+}

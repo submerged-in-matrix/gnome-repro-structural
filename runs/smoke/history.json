@@ -1,37 +1,37 @@
 [
   {
     "epoch": 0,
-    "train_loss_norm": 0.44315687704086304,
-    "test_mae_eV_per_atom": 0.3419778633117676,
+    "train_loss_norm": 0.44315687608718873,
+    "test_mae_eV_per_atom": 0.3419778709411621,
     "lr": 0.00045100000000000007,
-    "wall_seconds": 1.1463894844055176
+    "wall_seconds": 1.5574727058410645
   },
   {
     "epoch": 1,
-    "train_loss_norm": 0.27610479164123536,
-    "test_mae_eV_per_atom": 0.3511249256134033,
+    "train_loss_norm": 0.2761047947406769,
+    "test_mae_eV_per_atom": 0.3511249542236328,
     "lr": 0.00035200000000000005,
-    "wall_seconds": 0.5840559005737305
+    "wall_seconds": 0.7299671173095703
   },
   {
     "epoch": 2,
-    "train_loss_norm": 0.2509902536869049,
-    "test_mae_eV_per_atom": 0.36277604484558107,
+    "train_loss_norm": 0.2509902560710907,
+    "test_mae_eV_per_atom": 0.36277609634399416,
     "lr": 0.000253,
-    "wall_seconds": 0.5824024677276611
+    "wall_seconds": 0.7333853244781494
   },
   {
     "epoch": 3,
-    "train_loss_norm": 0.23360432195663453,
-    "test_mae_eV_per_atom": 0.3663326816558838,
+    "train_loss_norm": 0.23360432147979737,
+    "test_mae_eV_per_atom": 0.3663327102661133,
     "lr": 0.00015400000000000003,
-    "wall_seconds": 0.41852760314941406
+    "wall_seconds": 0.7386207580566406
   },
   {
     "epoch": 4,
-    "train_loss_norm": 0.2301775292158127,
-    "test_mae_eV_per_atom": 0.38160177421569824,
+    "train_loss_norm": 0.2301775360107422,
+    "test_mae_eV_per_atom": 0.3816017837524414,
     "lr": 5.5e-05,
-    "wall_seconds": 0.33339786529541016
+    "wall_seconds": 0.7353057861328125
   }
 ]

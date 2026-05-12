@@ -1,0 +1,9 @@
+{
+  "run_name": "ablation_shallow",
+  "best_test_mae_eV_per_atom": 0.025139988191728337,
+  "best_test_mae_meV_per_atom": 25.139988191728335,
+  "final_epoch": 199,
+  "n_train": 129754,
+  "n_test": 23248,
+  "n_params": 1487361
+}

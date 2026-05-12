@@ -14,6 +14,7 @@ wandb/
 *.pkl
 *.json.gz
 *.csv.gz
+*.zip
 
 # OS / editor
 .DS_Store
