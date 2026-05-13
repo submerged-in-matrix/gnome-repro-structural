@@ -80,7 +80,7 @@ def run(repo_root: Path | None = None, show: bool = False) -> dict:
     ax1.set_ylabel("meV/atom")
     ax1.set_title("Stage 1 Baseline — WBM Regression Metrics\n(seed=0, 20-pt TTA)")
     ax1.axhline(21, color=GREY, ls="--", lw=1,
-                label="GNoME pre-AL MP test MAE on relaxed MP structures (21 meV vs. 24.4 meV in my case)")
+                label="GNoME pre-AL MP test MAE on relaxed MP structures, not unrelaxed wbm structures")
     ax1.legend(fontsize=8)
     fig1.tight_layout()
     p1 = out_dir / "02_wbm_regression_metrics.png"
