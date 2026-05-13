@@ -1,0 +1,288 @@
+D:\..\gnome-repro-structural git:(main) python .\scripts\eval_wbm.py                        
+Device: cuda
+Model loaded from D:\Workspace\gnome-repro-structural\runs\default\best.pt
+  hidden_dim=256, n_layers=3, use_adj_norm=True
+  label stats: mu=-1.4488, sigma=1.1974
+  checkpoint test MAE: 0.024423987160488728
+Loading WBM initial structures from D:\Workspace\gnome-repro-structural\data\raw\2022-10-19-wbm-init-structs.json ...
+  256,963 entries found.
+parsing structures: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 256963/256963 [00:28<00:00, 8937.55it/s]
+
+Running 20-pt volume TTA on 256,963 structures ...
+TTA lattice scales: 0.9283 -> 1.0627
+  [  1,000/256,963]  56.6 structs/s  ETA 75.4 min
+  [  2,000/256,963]  65.8 structs/s  ETA 64.6 min
+  [  3,000/256,963]  64.6 structs/s  ETA 65.5 min
+  [  4,000/256,963]  62.7 structs/s  ETA 67.2 min
+  [  5,000/256,963]  64.5 structs/s  ETA 65.1 min
+  [  6,000/256,963]  66.6 structs/s  ETA 62.8 min
+  [  7,000/256,963]  67.8 structs/s  ETA 61.5 min
+  [  8,000/256,963]  68.5 structs/s  ETA 60.5 min
+  [  9,000/256,963]  70.0 structs/s  ETA 59.1 min
+  [ 10,000/256,963]  71.2 structs/s  ETA 57.8 min
+  [ 11,000/256,963]  72.0 structs/s  ETA 56.9 min
+  [ 12,000/256,963]  72.7 structs/s  ETA 56.1 min
+  [ 13,000/256,963]  73.6 structs/s  ETA 55.2 min
+  [ 14,000/256,963]  74.4 structs/s  ETA 54.4 min
+  [ 15,000/256,963]  74.6 structs/s  ETA 54.0 min
+  [ 16,000/256,963]  74.6 structs/s  ETA 53.8 min
+  [ 17,000/256,963]  74.7 structs/s  ETA 53.5 min
+  [ 18,000/256,963]  75.2 structs/s  ETA 53.0 min
+  [ 19,000/256,963]  75.7 structs/s  ETA 52.4 min
+  [ 20,000/256,963]  76.0 structs/s  ETA 51.9 min
+  [ 21,000/256,963]  75.6 structs/s  ETA 52.0 min
+  [ 22,000/256,963]  75.8 structs/s  ETA 51.7 min
+  [ 23,000/256,963]  76.1 structs/s  ETA 51.2 min
+  [ 24,000/256,963]  76.3 structs/s  ETA 50.9 min
+  [ 25,000/256,963]  76.4 structs/s  ETA 50.6 min
+  [ 26,000/256,963]  76.8 structs/s  ETA 50.1 min
+  [ 27,000/256,963]  77.4 structs/s  ETA 49.5 min
+  [ 28,000/256,963]  77.7 structs/s  ETA 49.1 min
+  [ 29,000/256,963]  78.0 structs/s  ETA 48.7 min
+  [ 30,000/256,963]  78.2 structs/s  ETA 48.4 min
+  [ 31,000/256,963]  77.9 structs/s  ETA 48.3 min
+  [ 32,000/256,963]  77.8 structs/s  ETA 48.2 min
+  [ 33,000/256,963]  78.3 structs/s  ETA 47.7 min
+  [ 34,000/256,963]  78.5 structs/s  ETA 47.3 min
+  [ 35,000/256,963]  78.6 structs/s  ETA 47.0 min
+  [ 36,000/256,963]  78.8 structs/s  ETA 46.8 min
+  [ 37,000/256,963]  78.6 structs/s  ETA 46.6 min
+  [ 38,000/256,963]  78.2 structs/s  ETA 46.7 min
+  [ 39,000/256,963]  77.7 structs/s  ETA 46.8 min
+  [ 40,000/256,963]  77.2 structs/s  ETA 46.8 min
+  [ 41,000/256,963]  76.9 structs/s  ETA 46.8 min
+  [ 42,000/256,963]  76.6 structs/s  ETA 46.8 min
+  [ 43,000/256,963]  76.3 structs/s  ETA 46.8 min
+  [ 44,000/256,963]  76.0 structs/s  ETA 46.7 min
+  [ 45,000/256,963]  76.1 structs/s  ETA 46.4 min
+  [ 46,000/256,963]  76.0 structs/s  ETA 46.3 min
+  [ 47,000/256,963]  76.1 structs/s  ETA 46.0 min
+  [ 48,000/256,963]  76.2 structs/s  ETA 45.7 min
+  [ 49,000/256,963]  76.4 structs/s  ETA 45.4 min
+  [ 50,000/256,963]  76.3 structs/s  ETA 45.2 min
+  [ 51,000/256,963]  76.4 structs/s  ETA 44.9 min
+  [ 52,000/256,963]  76.6 structs/s  ETA 44.6 min
+  [ 53,000/256,963]  76.6 structs/s  ETA 44.4 min
+  [ 54,000/256,963]  76.6 structs/s  ETA 44.2 min
+  [ 55,000/256,963]  76.5 structs/s  ETA 44.0 min
+  [ 56,000/256,963]  76.6 structs/s  ETA 43.7 min
+  [ 57,000/256,963]  76.8 structs/s  ETA 43.4 min
+  [ 58,000/256,963]  76.9 structs/s  ETA 43.1 min
+  [ 59,000/256,963]  77.1 structs/s  ETA 42.8 min
+  [ 60,000/256,963]  77.2 structs/s  ETA 42.5 min
+  [ 61,000/256,963]  77.4 structs/s  ETA 42.2 min
+  [ 62,000/256,963]  77.5 structs/s  ETA 41.9 min
+  [ 63,000/256,963]  77.5 structs/s  ETA 41.7 min
+  [ 64,000/256,963]  77.4 structs/s  ETA 41.5 min
+  [ 65,000/256,963]  77.5 structs/s  ETA 41.3 min
+  [ 66,000/256,963]  77.6 structs/s  ETA 41.0 min
+  [ 67,000/256,963]  77.4 structs/s  ETA 40.9 min
+  [ 68,000/256,963]  77.2 structs/s  ETA 40.8 min
+  [ 69,000/256,963]  77.2 structs/s  ETA 40.6 min
+  [ 70,000/256,963]  77.2 structs/s  ETA 40.4 min
+  [ 71,000/256,963]  77.2 structs/s  ETA 40.1 min
+  [ 72,000/256,963]  77.3 structs/s  ETA 39.9 min
+  [ 73,000/256,963]  77.3 structs/s  ETA 39.7 min
+  [ 74,000/256,963]  77.4 structs/s  ETA 39.4 min
+  [ 75,000/256,963]  77.4 structs/s  ETA 39.2 min
+  [ 76,000/256,963]  77.5 structs/s  ETA 38.9 min
+  [ 77,000/256,963]  77.5 structs/s  ETA 38.7 min
+  [ 78,000/256,963]  77.4 structs/s  ETA 38.5 min
+  [ 79,000/256,963]  77.4 structs/s  ETA 38.3 min
+  [ 80,000/256,963]  77.5 structs/s  ETA 38.1 min
+  [ 81,000/256,963]  77.5 structs/s  ETA 37.8 min
+  [ 82,000/256,963]  77.5 structs/s  ETA 37.6 min
+  [ 83,000/256,963]  77.4 structs/s  ETA 37.4 min
+  [ 84,000/256,963]  77.5 structs/s  ETA 37.2 min
+  [ 85,000/256,963]  77.5 structs/s  ETA 37.0 min
+  [ 86,000/256,963]  77.6 structs/s  ETA 36.7 min
+  [ 87,000/256,963]  77.6 structs/s  ETA 36.5 min
+  [ 88,000/256,963]  77.7 structs/s  ETA 36.2 min
+  [ 89,000/256,963]  77.7 structs/s  ETA 36.0 min
+  [ 90,000/256,963]  77.8 structs/s  ETA 35.8 min
+  [ 91,000/256,963]  77.7 structs/s  ETA 35.6 min
+  [ 92,000/256,963]  77.7 structs/s  ETA 35.4 min
+  [ 93,000/256,963]  77.8 structs/s  ETA 35.1 min
+  [ 94,000/256,963]  77.8 structs/s  ETA 34.9 min
+  [ 95,000/256,963]  77.8 structs/s  ETA 34.7 min
+  [ 96,000/256,963]  77.8 structs/s  ETA 34.5 min
+  [ 97,000/256,963]  77.6 structs/s  ETA 34.4 min
+  [ 98,000/256,963]  77.4 structs/s  ETA 34.2 min
+  [ 99,000/256,963]  77.4 structs/s  ETA 34.0 min
+  [100,000/256,963]  77.4 structs/s  ETA 33.8 min
+  [101,000/256,963]  77.4 structs/s  ETA 33.6 min
+  [102,000/256,963]  77.4 structs/s  ETA 33.4 min
+  [103,000/256,963]  77.5 structs/s  ETA 33.1 min
+  [104,000/256,963]  77.5 structs/s  ETA 32.9 min
+  [105,000/256,963]  77.5 structs/s  ETA 32.7 min
+  [106,000/256,963]  77.5 structs/s  ETA 32.5 min
+  [107,000/256,963]  77.6 structs/s  ETA 32.2 min
+  [108,000/256,963]  77.5 structs/s  ETA 32.0 min
+  [109,000/256,963]  77.5 structs/s  ETA 31.8 min
+  [110,000/256,963]  77.5 structs/s  ETA 31.6 min
+  [111,000/256,963]  77.6 structs/s  ETA 31.4 min
+  [112,000/256,963]  77.6 structs/s  ETA 31.1 min
+  [113,000/256,963]  77.6 structs/s  ETA 30.9 min
+  [114,000/256,963]  77.7 structs/s  ETA 30.7 min
+  [115,000/256,963]  77.7 structs/s  ETA 30.4 min
+  [116,000/256,963]  77.7 structs/s  ETA 30.2 min
+  [117,000/256,963]  77.7 structs/s  ETA 30.0 min
+  [118,000/256,963]  77.7 structs/s  ETA 29.8 min
+  [119,000/256,963]  77.7 structs/s  ETA 29.6 min
+  [120,000/256,963]  77.7 structs/s  ETA 29.4 min
+  [121,000/256,963]  77.8 structs/s  ETA 29.1 min
+  [122,000/256,963]  77.7 structs/s  ETA 28.9 min
+  [123,000/256,963]  77.5 structs/s  ETA 28.8 min
+  [124,000/256,963]  77.4 structs/s  ETA 28.6 min
+  [125,000/256,963]  77.5 structs/s  ETA 28.4 min
+  [126,000/256,963]  77.4 structs/s  ETA 28.2 min
+  [127,000/256,963]  77.4 structs/s  ETA 28.0 min
+  [128,000/256,963]  77.4 structs/s  ETA 27.8 min
+  [129,000/256,963]  77.5 structs/s  ETA 27.5 min
+  [130,000/256,963]  77.5 structs/s  ETA 27.3 min
+  [131,000/256,963]  77.5 structs/s  ETA 27.1 min
+  [132,000/256,963]  77.5 structs/s  ETA 26.9 min
+  [133,000/256,963]  77.6 structs/s  ETA 26.6 min
+  [134,000/256,963]  77.6 structs/s  ETA 26.4 min
+  [135,000/256,963]  77.6 structs/s  ETA 26.2 min
+  [136,000/256,963]  77.6 structs/s  ETA 26.0 min
+  [137,000/256,963]  77.6 structs/s  ETA 25.8 min
+  [138,000/256,963]  77.6 structs/s  ETA 25.6 min
+  [139,000/256,963]  77.6 structs/s  ETA 25.3 min
+  [140,000/256,963]  77.6 structs/s  ETA 25.1 min
+  [141,000/256,963]  77.6 structs/s  ETA 24.9 min
+  [142,000/256,963]  77.6 structs/s  ETA 24.7 min
+  [143,000/256,963]  77.6 structs/s  ETA 24.5 min
+  [144,000/256,963]  77.6 structs/s  ETA 24.3 min
+  [145,000/256,963]  77.6 structs/s  ETA 24.0 min
+  [146,000/256,963]  77.6 structs/s  ETA 23.8 min
+  [147,000/256,963]  77.5 structs/s  ETA 23.6 min
+  [148,000/256,963]  77.5 structs/s  ETA 23.4 min
+  [149,000/256,963]  77.5 structs/s  ETA 23.2 min
+  [150,000/256,963]  77.5 structs/s  ETA 23.0 min
+  [151,000/256,963]  77.5 structs/s  ETA 22.8 min
+  [152,000/256,963]  77.6 structs/s  ETA 22.6 min
+  [153,000/256,963]  77.6 structs/s  ETA 22.3 min
+  [154,000/256,963]  77.6 structs/s  ETA 22.1 min
+  [155,000/256,963]  77.6 structs/s  ETA 21.9 min
+  [156,000/256,963]  77.6 structs/s  ETA 21.7 min
+  [157,000/256,963]  77.6 structs/s  ETA 21.5 min
+  [158,000/256,963]  77.6 structs/s  ETA 21.2 min
+  [159,000/256,963]  77.6 structs/s  ETA 21.0 min
+  [160,000/256,963]  77.6 structs/s  ETA 20.8 min
+  [161,000/256,963]  77.6 structs/s  ETA 20.6 min
+  [162,000/256,963]  77.6 structs/s  ETA 20.4 min
+  [163,000/256,963]  77.6 structs/s  ETA 20.2 min
+  [164,000/256,963]  77.6 structs/s  ETA 20.0 min
+  [165,000/256,963]  77.6 structs/s  ETA 19.7 min
+  [166,000/256,963]  77.5 structs/s  ETA 19.5 min
+  [167,000/256,963]  77.5 structs/s  ETA 19.4 min
+  [168,000/256,963]  77.4 structs/s  ETA 19.2 min
+  [169,000/256,963]  77.3 structs/s  ETA 19.0 min
+  [170,000/256,963]  77.2 structs/s  ETA 18.8 min
+  [171,000/256,963]  77.1 structs/s  ETA 18.6 min
+  [172,000/256,963]  77.1 structs/s  ETA 18.4 min
+  [173,000/256,963]  77.1 structs/s  ETA 18.1 min
+  [174,000/256,963]  77.2 structs/s  ETA 17.9 min
+  [175,000/256,963]  77.2 structs/s  ETA 17.7 min
+  [176,000/256,963]  77.2 structs/s  ETA 17.5 min
+  [177,000/256,963]  77.3 structs/s  ETA 17.3 min
+  [178,000/256,963]  77.3 structs/s  ETA 17.0 min
+  [179,000/256,963]  77.2 structs/s  ETA 16.8 min
+  [180,000/256,963]  77.3 structs/s  ETA 16.6 min
+  [181,000/256,963]  77.3 structs/s  ETA 16.4 min
+  [182,000/256,963]  77.3 structs/s  ETA 16.2 min
+  [183,000/256,963]  77.3 structs/s  ETA 15.9 min
+  [184,000/256,963]  77.3 structs/s  ETA 15.7 min
+  [185,000/256,963]  77.3 structs/s  ETA 15.5 min
+  [186,000/256,963]  77.3 structs/s  ETA 15.3 min
+  [187,000/256,963]  77.3 structs/s  ETA 15.1 min
+  [188,000/256,963]  77.3 structs/s  ETA 14.9 min
+  [189,000/256,963]  77.3 structs/s  ETA 14.6 min
+  [190,000/256,963]  77.4 structs/s  ETA 14.4 min
+  [191,000/256,963]  77.4 structs/s  ETA 14.2 min
+  [192,000/256,963]  77.4 structs/s  ETA 14.0 min
+  [193,000/256,963]  77.4 structs/s  ETA 13.8 min
+  [194,000/256,963]  77.4 structs/s  ETA 13.6 min
+  [195,000/256,963]  77.4 structs/s  ETA 13.3 min
+  [196,000/256,963]  77.4 structs/s  ETA 13.1 min
+  [197,000/256,963]  77.5 structs/s  ETA 12.9 min
+  [198,000/256,963]  77.4 structs/s  ETA 12.7 min
+  [199,000/256,963]  77.4 structs/s  ETA 12.5 min
+  [200,000/256,963]  77.5 structs/s  ETA 12.3 min
+  [201,000/256,963]  77.5 structs/s  ETA 12.0 min
+  [202,000/256,963]  77.5 structs/s  ETA 11.8 min
+  [203,000/256,963]  77.5 structs/s  ETA 11.6 min
+  [204,000/256,963]  77.5 structs/s  ETA 11.4 min
+  [205,000/256,963]  77.5 structs/s  ETA 11.2 min
+  [206,000/256,963]  77.5 structs/s  ETA 11.0 min
+  [207,000/256,963]  77.5 structs/s  ETA 10.7 min
+  [208,000/256,963]  77.6 structs/s  ETA 10.5 min
+  [209,000/256,963]  77.6 structs/s  ETA 10.3 min
+  [210,000/256,963]  77.6 structs/s  ETA 10.1 min
+  [211,000/256,963]  77.6 structs/s  ETA 9.9 min
+  [212,000/256,963]  77.6 structs/s  ETA 9.7 min
+  [213,000/256,963]  77.7 structs/s  ETA 9.4 min
+  [214,000/256,963]  77.7 structs/s  ETA 9.2 min
+  [215,000/256,963]  77.7 structs/s  ETA 9.0 min
+  [216,000/256,963]  77.7 structs/s  ETA 8.8 min
+  [217,000/256,963]  77.7 structs/s  ETA 8.6 min
+  [218,000/256,963]  77.7 structs/s  ETA 8.4 min
+  [219,000/256,963]  77.7 structs/s  ETA 8.1 min
+  [220,000/256,963]  77.6 structs/s  ETA 7.9 min
+  [221,000/256,963]  77.6 structs/s  ETA 7.7 min
+  [222,000/256,963]  77.5 structs/s  ETA 7.5 min
+  [223,000/256,963]  77.5 structs/s  ETA 7.3 min
+  [224,000/256,963]  77.5 structs/s  ETA 7.1 min
+  [225,000/256,963]  77.6 structs/s  ETA 6.9 min
+  [226,000/256,963]  77.6 structs/s  ETA 6.7 min
+  [227,000/256,963]  77.6 structs/s  ETA 6.4 min
+  [228,000/256,963]  77.6 structs/s  ETA 6.2 min
+  [229,000/256,963]  77.6 structs/s  ETA 6.0 min
+  [230,000/256,963]  77.6 structs/s  ETA 5.8 min
+  [231,000/256,963]  77.7 structs/s  ETA 5.6 min
+  [232,000/256,963]  77.7 structs/s  ETA 5.4 min
+  [233,000/256,963]  77.7 structs/s  ETA 5.1 min
+  [234,000/256,963]  77.7 structs/s  ETA 4.9 min
+  [235,000/256,963]  77.7 structs/s  ETA 4.7 min
+  [236,000/256,963]  77.8 structs/s  ETA 4.5 min
+  [237,000/256,963]  77.8 structs/s  ETA 4.3 min
+  [238,000/256,963]  77.8 structs/s  ETA 4.1 min
+  [239,000/256,963]  77.8 structs/s  ETA 3.8 min
+  [240,000/256,963]  77.9 structs/s  ETA 3.6 min
+  [241,000/256,963]  77.9 structs/s  ETA 3.4 min
+  [242,000/256,963]  77.9 structs/s  ETA 3.2 min
+  [243,000/256,963]  77.9 structs/s  ETA 3.0 min
+  [244,000/256,963]  78.0 structs/s  ETA 2.8 min
+  [245,000/256,963]  78.0 structs/s  ETA 2.6 min
+  [246,000/256,963]  78.0 structs/s  ETA 2.3 min
+  [247,000/256,963]  78.1 structs/s  ETA 2.1 min
+  [248,000/256,963]  78.1 structs/s  ETA 1.9 min
+  [249,000/256,963]  78.1 structs/s  ETA 1.7 min
+  [250,000/256,963]  78.1 structs/s  ETA 1.5 min
+  [251,000/256,963]  78.2 structs/s  ETA 1.3 min
+  [252,000/256,963]  78.2 structs/s  ETA 1.1 min
+  [253,000/256,963]  78.2 structs/s  ETA 0.8 min
+  [254,000/256,963]  78.3 structs/s  ETA 0.6 min
+  [255,000/256,963]  78.3 structs/s  ETA 0.4 min
+  [256,000/256,963]  78.4 structs/s  ETA 0.2 min
+
+Done. 256,963 structures in 54.6 min (78.4 structs/s)
+Warning: 24 structures produced no valid graphs (NaN prediction).
+
+Predictions saved -> D:\Workspace\gnome-repro-structural\runs\default\predictions_wbm.csv
+
+Loading WBM ground truth from D:\Workspace\gnome-repro-structural\data\raw\wbm-summary.csv.gz ...
+  wbm-summary columns: ['material_id', 'formula', 'n_sites', 'volume', 'uncorrected_energy', 'e_form_per_atom_wbm', 'e_above_hull_wbm', 'bandgap_pbe', 'wyckoff_spglib_initial_structure', 'uncorrected_energy_from_cse', 'e_correction_per_atom_mp2020', 'e_correction_per_atom_mp_legacy', 'e_form_per_atom_uncorrected', 'e_form_per_atom_mp2020_corrected', 'e_above_hull_mp2020_corrected_ppd_mp', 'site_stats_fingerprint_init_final_norm_diff', 'wyckoff_spglib', 'unique_prototype']
+  Using ground-truth column: 'e_form_per_atom_wbm'
+  Matched 256,939 structures for metric computation.
+
+========================================
+  WBM Eval Results (seed=0 baseline + 20-pt TTA)
+  N structures : 256,939
+  MAE          : 168.76 meV/atom
+  RMSE         : 253.94 meV/atom
+  Bias         : 122.48 meV/atom
+========================================
+
+Metrics saved -> D:\Workspace\gnome-repro-structural\runs\default\metrics_wbm.json
