@@ -153,44 +153,55 @@ def run(repo_root: Path | None = None, show: bool = False) -> dict:
     fig1.savefig(p1, dpi=150)
     print(f"Saved: {p1}")
 
-    # -------------------------------------------------------------------
+   # -------------------------------------------------------------------
     # Plot 2 — Best MAE bar chart + delta vs baseline
     # -------------------------------------------------------------------
-    labels    = [r["label"].split(":")[0].strip() for r in loaded]
-    best_maes = [r["best_mae"] for r in loaded]
-    deltas    = [m - baseline_mae for m in best_maes]
-    colors    = [r["color"] for r in loaded]
+    short_labels = ["Baseline", "B1", "B2", "B3"]
+    best_maes    = [r["best_mae"] for r in loaded]
+    deltas       = [m - baseline_mae for m in best_maes]
+    colors       = [r["color"] for r in loaded]
+    delta_colors = [GREY if d == 0 else ("#C44E52" if d > 0 else "#55A868")
+                    for d in deltas]
 
     fig2, (ax2a, ax2b) = plt.subplots(1, 2, figsize=(11, 4))
 
     # Absolute MAE
-    bars = ax2a.bar(labels, best_maes, color=colors, edgecolor="white", width=0.5)
+    bars = ax2a.bar(short_labels, best_maes, color=colors, edgecolor="white", width=0.5)
     for bar, val in zip(bars, best_maes):
         ax2a.text(bar.get_x() + bar.get_width() / 2,
                   bar.get_height() + 0.1,
                   f"{val:.1f}", ha="center", va="bottom", fontsize=9)
+    ax2a.set_xlabel("Model")
     ax2a.set_ylabel("Best MAE  (meV/atom)")
     ax2a.set_title("Best MAE per run")
-    ax2a.tick_params(axis="x", rotation=15)
 
     # Delta vs baseline
-    delta_colors = [GREY if d == 0 else ("#C44E52" if d > 0 else "#55A868")
-                    for d in deltas]
-    bars2 = ax2b.bar(labels, deltas, color=delta_colors, edgecolor="white", width=0.5)
+    bars2 = ax2b.bar(short_labels, deltas, color=delta_colors, edgecolor="white", width=0.5)
     for bar, val in zip(bars2, deltas):
         ax2b.text(bar.get_x() + bar.get_width() / 2,
                   val + (0.02 if val >= 0 else -0.08),
                   f"{val:+.2f}", ha="center", va="bottom", fontsize=9)
     ax2b.axhline(0, color=GREY, lw=1)
+    ax2b.set_xlabel("Model")
     ax2b.set_ylabel("Delta MAE vs baseline  (meV/atom)")
     ax2b.set_title("Delta vs Baseline")
-    ax2b.tick_params(axis="x", rotation=15)
+
+    # Single shared legend for both subplots
+    from matplotlib.patches import Patch
+    legend_handles = [
+        Patch(color=r["color"], label=r["label"].split("(")[0].strip())
+        for r in loaded
+    ]
+    fig2.legend(handles=legend_handles, loc="lower center",
+                ncol=len(loaded), fontsize=8,
+                bbox_to_anchor=(0.5, -0.08), frameon=True)
 
     fig2.tight_layout()
+    fig2.subplots_adjust(bottom=0.18)   # make room for legend
     p2 = out_dir / "03_ablation_bar_comparison.png"
-    fig2.savefig(p2, dpi=150)
+    fig2.savefig(p2, dpi=150, bbox_inches="tight")
     print(f"Saved: {p2}")
-
+    
     # -------------------------------------------------------------------
     # Plot 3 — Last-50-epoch zoom, all runs overlaid
     # -------------------------------------------------------------------

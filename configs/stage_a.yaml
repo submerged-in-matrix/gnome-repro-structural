@@ -1,0 +1,25 @@
+# Stage A config — 500 epochs, effective batch=256, EMA decay=0.999
+# Run with: python scripts/train_full_500.py --config configs/stage_a.yaml
+
+run_name:        stage_a
+
+# Architecture (unchanged from baseline)
+hidden_dim:      256
+n_layers:        3
+use_adj_norm:    true
+
+# Optimization
+epochs:          500
+batch_size:      128       # physical batch per forward pass
+accum_steps:     2         # effective batch = 128 * 2 = 256
+lr:              0.00055   # 5.5e-4, same as baseline
+lr_end_factor:   0.1       # final lr = 5.5e-5
+
+# EMA
+ema_decay:       0.999
+
+# System
+device:          cuda
+seed:            0
+num_workers:     0         # Windows: keep at 0
+log_every:       1
