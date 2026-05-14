@@ -93,6 +93,15 @@ def load_model(checkpoint_path: Path, device: torch.device) -> tuple:
     print(f"  label stats: mu={mu:.4f}, sigma={sigma:.4f}")
     return model, mu, sigma
 
+def scale_structure(structure: Structure, lattice_scale: float) -> Structure:
+    """Return a copy of the input structure with the lattice uniformly scaled."""
+    new_lattice = structure.lattice.matrix * lattice_scale
+    return Structure(
+        new_lattice,
+        [site.specie for site in structure],
+        [site.frac_coords for site in structure],
+        coords_are_cartesian=False,
+    )
 
 def predict_with_tta(
     structure: Structure,
