@@ -60,13 +60,7 @@ TTA_LATTICE_SCALES = _vol_scales ** (1.0 / 3.0)  # shape (20,)
 # ---------------------------------------------------------------------------
 
 def load_model(checkpoint_path: Path, device: torch.device) -> tuple:
-    """Load GNoMEStructural from a best.pt checkpoint.
-
-    Returns (model, mu, sigma) where mu/sigma are label normalization stats
-    stored inside the checkpoint.
-    """
-    ckpt = torch.load(checkpoint_path, map_location=device, weights_only=False)
-
+    ckpt  = torch.load(checkpoint_path, map_location=device, weights_only=False)
     cfg   = ckpt["config"]
     stats = ckpt["stats"]
 
@@ -76,7 +70,18 @@ def load_model(checkpoint_path: Path, device: torch.device) -> tuple:
         n_layers=cfg["n_layers"],
         use_adj_norm=cfg.get("use_adj_norm", True),
     )
-    model.load_state_dict(ckpt["model_state"])
+
+    state = ckpt["model_state"]
+
+    # EMA shadow only contains parameters (requires_grad=True).
+    # Buffers like avg_adjacency are missing — fill from the freshly
+    # initialised model which already has them set correctly.
+    model_state = model.state_dict()
+    for key in model_state:
+        if key not in state:
+            state[key] = model_state[key]   # restore missing buffers
+
+    model.load_state_dict(state)
     model.to(device)
     model.eval()
 
@@ -86,19 +91,7 @@ def load_model(checkpoint_path: Path, device: torch.device) -> tuple:
     print(f"  hidden_dim={cfg['hidden_dim']}, n_layers={cfg['n_layers']}, "
           f"use_adj_norm={cfg.get('use_adj_norm', True)}")
     print(f"  label stats: mu={mu:.4f}, sigma={sigma:.4f}")
-    print(f"  checkpoint test MAE: {ckpt.get('test_mae', 'N/A')}")
     return model, mu, sigma
-
-
-def scale_structure(structure: Structure, lattice_scale: float) -> Structure:
-    """Return a copy of the input structure with the lattice uniformly scaled."""
-    new_lattice = structure.lattice.matrix * lattice_scale
-    return Structure(
-        new_lattice,
-        [site.specie for site in structure],
-        [site.frac_coords for site in structure],
-        coords_are_cartesian=False,
-    )
 
 
 def predict_with_tta(
