@@ -1,0 +1,13 @@
+{
+  "n_structures": 256939,
+  "mae_meV_per_atom": 159.9269,
+  "rmse_meV_per_atom": 244.8783,
+  "bias_meV_per_atom": 110.8082,
+  "ground_truth_column": "e_form_per_atom_wbm",
+  "checkpoint": "runs\\stage_a\\best.pt",
+  "tta_n_points": 20,
+  "tta_scale_range": [
+    0.8,
+    1.2
+  ]
+}
