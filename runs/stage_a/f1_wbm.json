@@ -1,0 +1,28 @@
+{
+  "n_structures": 256939,
+  "n_true_stable": 48276,
+  "hull_threshold_eV": 0.0,
+  "strategy_raw": {
+    "tp": 46811,
+    "fp": 162732,
+    "fn": 1465,
+    "tn": 45931,
+    "precision": 0.2234,
+    "recall": 0.9697,
+    "f1": 0.3631,
+    "n_pred_stable": 209543,
+    "n_true_stable": 48276
+  },
+  "bias_meV_per_atom": 110.8082,
+  "strategy_bias_corrected": {
+    "tp": 47520,
+    "fp": 176191,
+    "fn": 756,
+    "tn": 32472,
+    "precision": 0.2124,
+    "recall": 0.9843,
+    "f1": 0.3494,
+    "n_pred_stable": 223711,
+    "n_true_stable": 48276
+  }
+}
