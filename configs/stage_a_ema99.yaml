@@ -1,0 +1,32 @@
+# Stage A EMA-0.99 config — 500 epochs, EMA decay=0.99, effective batch=256
+# Differs from stage_a.yaml only in ema_decay: 0.999 -> 0.99
+# Rationale: decay=0.999 gave N_eff~1000 steps (~1.7 epochs) — too slow for
+# 500ep training, causing EMA shadow to lag and degrade after epoch ~386.
+# decay=0.99 gives N_eff~100 steps (~0.17 epochs) — tracks model closely
+# while still smoothing mini-batch noise.
+# Run with: python scripts/train_full_500.py --config configs/stage_a_ema99.yaml
+
+run_name:        stage_a_ema99
+
+# Architecture (unchanged from baseline)
+hidden_dim:      256
+n_layers:        3
+use_adj_norm:    true
+
+# Optimization
+epochs:          500
+batch_size:      128       # physical batch per forward pass
+accum_steps:     2         # effective batch = 128 * 2 = 256
+lr:              0.00055   # 5.5e-4, same as baseline
+# lr_end_factor: 0.1       # v1 (stage_a.yaml): linear decay to 5.5e-5
+lr_end_factor:   0.1       # v2 (stage_a_ema99.yaml): same decay schedule kept
+
+# EMA
+# ema_decay: 0.999         # v1 (stage_a.yaml): too slow for 500ep, N_eff~1.7ep
+ema_decay:       0.99      # v2 (stage_a_ema99.yaml): N_eff~0.17ep, tracks model closely
+
+# System
+device:          cuda
+seed:            0
+num_workers:     0         # Windows: keep at 0
+log_every:       1
