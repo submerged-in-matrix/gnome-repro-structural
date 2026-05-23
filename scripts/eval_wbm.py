@@ -109,11 +109,14 @@ def predict_with_tta(
     mu: float,
     sigma: float,
     device: torch.device,
+    aggregator: str = "mean", 
 ) -> float | None:
-    """Run 20-pt volume TTA for one structure. Returns mean prediction in eV/atom.
-
-    Returns None if all 20 graph-builds fail (e.g. no edges within the
-    4 A cutoff at any volume scale).
+    """Trial with min: Run 20-pt volume TTA for one structure. Returns mean prediction in eV/atom.
+    Returns None if all 20 graph-builds fail (e.g. no edges within the 4 A cutoff at any volume scale).
+    
+    Paper version:Run 20-pt volume TTA for one structure. Returns aggregated prediction in eV/atom.
+    # Aggregator: 'min' (paper-faithful) picks the lowest energy across volume scales,
+    # approximating a 1D variable-cell relaxation. 'mean' averages all scales (original).
     """
     graphs = []
     for ls in TTA_LATTICE_SCALES:
@@ -133,7 +136,8 @@ def predict_with_tta(
         pred_norm = model(batch)       # (n_valid_tta,) normalized
         pred = pred_norm * sigma + mu  # de-normalize to eV/atom
 
-    return float(pred.mean().item())
+    # return float(pred.mean().item())
+    return float(pred.min().item()) if aggregator == "min" else float(pred.mean().item())
 
 
 def load_wbm_structures(json_path: Path) -> tuple[list[str], list[Structure]]:
@@ -217,6 +221,13 @@ def main():
         default=1000,
         help="Print progress every N structures",
     )
+    parser.add_argument(
+        "--aggregator",
+        type=str,
+        default="mean",
+        choices=["mean", "min"],
+        help="TTA aggregator: 'mean' (original) or 'min' (paper-faithful minimum reduction)",
+    )
     args = parser.parse_args()
 
     device = torch.device(args.device)
@@ -248,7 +259,8 @@ def main():
     t0       = time.time()
 
     for i, (mid, struct) in enumerate(zip(ids, structures)):
-        pred = predict_with_tta(struct, model, mu, sigma, device)
+        # pred = predict_with_tta(struct, model, mu, sigma, device) # original mean aggregator 
+        pred = predict_with_tta(struct, model, mu, sigma, device, args.aggregator)
         if pred is None:
             preds.append(float("nan"))
             n_failed += 1
@@ -337,6 +349,7 @@ def main():
         "checkpoint"        : str(args.checkpoint),
         "tta_n_points"      : TTA_N_POINTS,
         "tta_scale_range"   : [TTA_SCALE_MIN, TTA_SCALE_MAX],
+        "tta_aggregator"    : args.aggregator,   # "mean" or "min"
     }
     metrics_path = args.out_dir / "metrics_wbm.json"
     with open(metrics_path, "w") as f:
