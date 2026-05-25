@@ -1,9 +1,9 @@
 # scripts/run_today.ps1
 # Automates all runs for today in sequence:
-#   Step 1 — Baseline (200ep, no EMA) min-TTA WBM eval
-#   Step 2 — Stage A (500ep, EMA-0.999) min-TTA WBM eval
-#   Step 3 — F1 scoring for both min-TTA runs
-#   Step 4 — Stage A EMA-0.99 training (500ep, seed=0)
+#   Step 1 - Baseline (200ep, no EMA) min-TTA WBM eval
+#   Step 2 - Stage A (500ep, EMA-0.999) min-TTA WBM eval
+#   Step 3 - F1 scoring for both min-TTA runs
+#   Step 4 - Stage A EMA-0.99 training (500ep, seed=0)
 #
 # Outputs are kept separate from original mean-TTA results:
 #   runs/default/min_tta/     <- baseline min-TTA
@@ -32,9 +32,9 @@ function Check-Exit($step) {
 }
 
 # ---------------------------------------------------------------------------
-# Step 1 — Baseline min-TTA eval
+# Step 1 - Baseline min-TTA eval
 # ---------------------------------------------------------------------------
-Print-Header "Step 1/4 — Baseline (200ep) WBM eval with min-TTA"
+Print-Header "Step 1/4 - Baseline (200ep) WBM eval with min-TTA"
 
 python scripts/eval_wbm.py `
     --checkpoint runs/default/best.pt `
@@ -50,9 +50,9 @@ Check-Exit "Baseline min-TTA F1"
 Write-Host "Baseline min-TTA done. Results in runs/default/min_tta/" -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
-# Step 2 — Stage A min-TTA eval
+# Step 2 - Stage A min-TTA eval
 # ---------------------------------------------------------------------------
-Print-Header "Step 2/4 — Stage A (500ep EMA-0.999) WBM eval with min-TTA"
+Print-Header "Step 2/4 - Stage A (500ep EMA-0.999) WBM eval with min-TTA"
 
 python scripts/eval_wbm.py `
     --checkpoint runs/stage_a/best.pt `
@@ -68,9 +68,9 @@ Check-Exit "Stage A min-TTA F1"
 Write-Host "Stage A min-TTA done. Results in runs/stage_a/min_tta/" -ForegroundColor Green
 
 # ---------------------------------------------------------------------------
-# Step 3 — Summary before training
+# Step 3 - Summary before training
 # ---------------------------------------------------------------------------
-Print-Header "Step 3/4 — Min-TTA eval complete. Summary:"
+Print-Header "Step 3/4 - Min-TTA eval complete. Summary:"
 
 Write-Host ""
 Write-Host "  Baseline mean-TTA F1 : 0.365  (runs/default/f1_wbm.json)"
@@ -82,9 +82,9 @@ Write-Host "Starting EMA-0.99 training in 10 seconds. Ctrl+C to abort." -Foregro
 Start-Sleep -Seconds 10
 
 # ---------------------------------------------------------------------------
-# Step 4 — Stage A EMA-0.99 training
+# Step 4 - Stage A EMA-0.99 training
 # ---------------------------------------------------------------------------
-Print-Header "Step 4/4 — Training Stage A EMA-0.99 (500ep, seed=0)"
+Print-Header "Step 4/4 - Training Stage A EMA-0.99 (500ep, seed=0)"
 Write-Host "Expected wall time: ~7.5h on RTX 4070 Ti" -ForegroundColor Yellow
 Write-Host "Output: runs/stage_a_ema99/" -ForegroundColor Yellow
 
