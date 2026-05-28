@@ -4,7 +4,7 @@ Supports both EMA variants and both TTA strategies via ``run_name``:
 
     run(run_name="stage_a",         ema_label="EMA-0.999")          # mean-TTA
     run(run_name="stage_a_ema99",   ema_label="EMA-0.99")           # mean-TTA
-    run(run_name="stage_a_min_tta", ema_label="EMA-0.999 min-TTA")  # min-TTA
+    run(run_name="stage_a", sub_dir="min_tta", ema_label="EMA-0.999 min-TTA")  # min-TTA
 
 Reads:
     runs/<run_name>/metrics_wbm.json
@@ -101,6 +101,7 @@ def run(
     repo_root: Path | None = None,
     run_name:  str         = "stage_a",
     ema_label: str         = "EMA-0.999",
+    sub_dir:   str | None  = None,
     show:      bool        = False,
 ) -> dict:
     """Run WBM evaluation summary for one Stage A variant.
@@ -108,13 +109,17 @@ def run(
     Parameters
     ----------
     run_name : str
-        Sub-folder under ``runs/``.  Use ``"stage_a"`` or ``"stage_a_ema99"``.
+        Sub-folder under ``runs/``.  e.g. ``"stage_a"``, ``"stage_a_ema99"``.
+    sub_dir : str or None
+        Optional sub-folder inside the run directory where JSON files live.
+        Use ``"min_tta"`` for results at ``runs/<run_name>/min_tta/metrics_wbm.json``.
     ema_label : str
         Human-readable label for plots.
     """
     root    = Path(repo_root) if repo_root else _REPO_ROOT
-    run_dir = root / "runs" / run_name
-    out_dir = root / "results" / f"stage1_{run_name}"
+    run_dir = root / "runs" / run_name / sub_dir if sub_dir else root / "runs" / run_name
+    out_tag = f"{run_name}_{sub_dir}" if sub_dir else run_name
+    out_dir = root / "results" / f"stage1_{out_tag}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     with open(run_dir / "metrics_wbm.json") as f:
@@ -296,7 +301,7 @@ def compare_ema_variants(
     ----------
     summary_999     : returned by run(run_name="stage_a",       ema_label="EMA-0.999")  [mean-TTA]
     summary_99      : returned by run(run_name="stage_a_ema99", ema_label="EMA-0.99")   [mean-TTA]
-    summary_999_min : returned by run(run_name="stage_a_min_tta", ema_label="EMA-0.999 min-TTA")
+    summary_999_min : returned by run(run_name="stage_a", sub_dir="min_tta", ema_label="EMA-0.999 min-TTA")
                       Pass None to omit this series.
 
     Produces:
@@ -441,7 +446,7 @@ def main():
     parser.add_argument("--compare",   action="store_true",
                         help="Run mean-TTA variants and produce comparison plot.")
     parser.add_argument("--compare-min-tta", action="store_true",
-                        help="Include min-TTA series in comparison (requires stage_a_min_tta run).")
+                        help="Include min-TTA series in comparison (requires runs/stage_a/min_tta/).")
     parser.add_argument("--show", action="store_true")
     args = parser.parse_args()
 
@@ -452,8 +457,8 @@ def main():
                    ema_label="EMA-0.99",  show=False)
         s_min = None
         if args.compare_min_tta:
-            s_min = run(repo_root=args.repo_root, run_name="stage_a_min_tta",
-                        ema_label="EMA-0.999 min-TTA", show=False)
+            s_min = run(repo_root=args.repo_root, run_name="stage_a",
+                        sub_dir="min_tta", ema_label="EMA-0.999 min-TTA", show=False)
         compare_ema_variants(s999, s99, s_min,
                              repo_root=args.repo_root, show=args.show)
     else:
