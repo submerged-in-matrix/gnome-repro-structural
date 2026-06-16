@@ -20,7 +20,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Ensure project src/ is on path even when running this file directly.
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
@@ -57,7 +56,7 @@ def main():
             n_skipped_graph_failed += 1
             continue
 
-        # Tag with material_id so we can trace failures later if needed.
+        # Tag with material_id so to trace failures
         graph.material_id = entry["material_id"]
 
         if assign_split(entry["formula_pretty"]) == "train":
