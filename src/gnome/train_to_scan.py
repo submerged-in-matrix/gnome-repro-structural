@@ -29,7 +29,8 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LinearLR
-from torch_geometric.loader import DataLoader
+from torch_geometric.loader import DataLoader, DataListLoader
+from torch_geometric.nn import DataParallel as PyGDataParallel
 
 from gnome.model_to_scan import GNoMEStructural
 
@@ -81,9 +82,11 @@ class ScanConfig:
     hidden_dim: int = 256
     use_adj_norm: bool = True
 
-    # Fixed training settings per the locked plan: no EMA, 500 epochs, seed 0.
+    # Fixed training settings per the locked plan: no EMA, seed 0.
+    # Epochs cut from 500 to 200 (2026-06-17): Stage B ablation already reached
+    # MAE=24.4 meV/atom at 200 epochs, so 500 is excess compute for search purposes.
     # Effective batch = batch_size * accum_steps = 256, matching Stage A.
-    epochs: int = 500
+    epochs: int = 200
     batch_size: int = 128
     accum_steps: int = 2
     lr_end_factor: float = 0.1
@@ -94,6 +97,10 @@ class ScanConfig:
     device: str = "cuda"
     num_workers: int = 0
     log_every: int = 25
+    # When True and >1 GPU is visible, uses PyG DataParallel across all devices.
+    # Mathematically equivalent to single-GPU (no batch-dependent layers in the
+    # model; loss is a per-graph mean), verified 2026-06-17.
+    parallel: bool = True
 
     run_name: str = "scan_run"
     runs_dir: str = str(RUNS_DIR)
@@ -109,6 +116,7 @@ def train_one(cfg: ScanConfig) -> dict:
     """
     torch.manual_seed(cfg.seed)
     device = torch.device(cfg.device)
+    parallel = cfg.parallel and torch.cuda.device_count() > 1
 
     run_dir = Path(cfg.runs_dir) / cfg.run_name
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -119,14 +127,26 @@ def train_one(cfg: ScanConfig) -> dict:
     test_data = torch.load(TEST_PT, weights_only=False)
     stats = torch.load(STATS_PT, weights_only=False)
 
-    train_loader = DataLoader(
-        train_data, batch_size=cfg.batch_size, shuffle=True,
-        num_workers=cfg.num_workers,
-    )
-    test_loader = DataLoader(
-        test_data, batch_size=cfg.batch_size, shuffle=False,
-        num_workers=cfg.num_workers,
-    )
+    if parallel:
+        # DataListLoader keeps each Data object separate so PyG DataParallel
+        # can split the list across GPUs by graph, not by a pre-batched tensor.
+        train_loader = DataListLoader(
+            train_data, batch_size=cfg.batch_size, shuffle=True,
+            num_workers=cfg.num_workers,
+        )
+        test_loader = DataListLoader(
+            test_data, batch_size=cfg.batch_size, shuffle=False,
+            num_workers=cfg.num_workers,
+        )
+    else:
+        train_loader = DataLoader(
+            train_data, batch_size=cfg.batch_size, shuffle=True,
+            num_workers=cfg.num_workers,
+        )
+        test_loader = DataLoader(
+            test_data, batch_size=cfg.batch_size, shuffle=False,
+            num_workers=cfg.num_workers,
+        )
 
     # Parameterised model carries the two new axes plus the existing n_layers.
     model = GNoMEStructural(
@@ -138,6 +158,9 @@ def train_one(cfg: ScanConfig) -> dict:
         activation=cfg.activation,
     ).to(device)
     n_params = sum(p.numel() for p in model.parameters())
+
+    if parallel:
+        model = PyGDataParallel(model)
 
     optimizer = Adam(model.parameters(), lr=cfg.lr)
     scheduler = LinearLR(
@@ -153,11 +176,18 @@ def train_one(cfg: ScanConfig) -> dict:
 
     for epoch in range(cfg.epochs):
         t0 = time.time()
-        train_loss = _train_epoch(
-            model, train_loader, optimizer, mu, sigma, device,
-            cfg.grad_clip, cfg.accum_steps,
-        )
-        test_mae = _eval_epoch(model, test_loader, mu, sigma, device)
+        if parallel:
+            train_loss = _train_epoch_parallel(
+                model, train_loader, optimizer, mu, sigma,
+                cfg.grad_clip, cfg.accum_steps,
+            )
+            test_mae = _eval_epoch_parallel(model, test_loader, mu, sigma)
+        else:
+            train_loss = _train_epoch(
+                model, train_loader, optimizer, mu, sigma, device,
+                cfg.grad_clip, cfg.accum_steps,
+            )
+            test_mae = _eval_epoch(model, test_loader, mu, sigma, device)
         scheduler.step()
         wall = time.time() - t0
 
@@ -178,11 +208,15 @@ def train_one(cfg: ScanConfig) -> dict:
 
         # Best test MAE over the run is the search decision metric; the best
         # checkpoint is kept so a winning architecture can be reloaded later.
+        # model.module is used under DataParallel so the saved state_dict
+        # loads directly into a plain GNoMEStructural later, with no "module."
+        # key prefix to strip.
         if test_mae < best_mae:
             best_mae = test_mae
+            state = model.module.state_dict() if parallel else model.state_dict()
             torch.save({
                 "epoch": epoch,
-                "model_state": model.state_dict(),
+                "model_state": state,
                 "config": asdict(cfg),
                 "stats": stats,
                 "test_mae": test_mae,
@@ -234,6 +268,50 @@ def _train_epoch(model, loader, optimizer, mu, sigma, device, grad_clip, accum_s
             optimizer.step()
             optimizer.zero_grad()
 
+    return total / count
+
+
+def _train_epoch_parallel(model, loader, optimizer, mu, sigma, grad_clip, accum_steps):
+    """Multi-GPU train epoch using PyG DataParallel.
+
+    DataParallel gathers outputs back to the primary device in the same order
+    as the input data_list, so targets are obtained by concatenating data.y
+    from that same list directly; no manual re-splitting is needed.
+    """
+    model.train()
+    total, count = 0.0, 0
+    optimizer.zero_grad()
+
+    for step, data_list in enumerate(loader):
+        target = torch.cat([d.y for d in data_list])
+        pred_norm = model(data_list)
+        target_norm = (target.to(pred_norm.device) - mu) / sigma
+        loss = (pred_norm - target_norm).abs().mean() / accum_steps
+        loss.backward()
+
+        n_graphs = len(data_list)
+        total += loss.item() * accum_steps * n_graphs
+        count += n_graphs
+
+        if (step + 1) % accum_steps == 0 or (step + 1) == len(loader):
+            if grad_clip is not None:
+                nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+            optimizer.step()
+            optimizer.zero_grad()
+
+    return total / count
+
+
+def _eval_epoch_parallel(model, loader, mu, sigma):
+    """Multi-GPU eval epoch; returns MAE in eV/atom, mirrors _eval_epoch."""
+    model.eval()
+    total, count = 0.0, 0
+    with torch.no_grad():
+        for data_list in loader:
+            target = torch.cat([d.y for d in data_list])
+            pred = model(data_list) * sigma + mu
+            total += (pred - target.to(pred.device)).abs().sum().item()
+            count += len(data_list)
     return total / count
 
 
