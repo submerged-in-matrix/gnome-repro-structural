@@ -16,21 +16,31 @@ Search strategy (anchored coordinate search):
 
 Decision metric: best stratified-test MAE over the run (lower is better). WBM is
 not used during the search; it is reserved for the locked architecture only.
+
+DDP launch (torchrun):
+    torchrun --nproc_per_node=2 scripts/scan_N_<axis>.py
+Single-GPU fallback (no dist.init_process_group required):
+    python scripts/scan_N_<axis>.py
 """
 from __future__ import annotations
 
 import json
+import os
+import random
 import time
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict
 from itertools import product
 from pathlib import Path
 
+import numpy as np
 import torch
+import torch.distributed as dist
 import torch.nn as nn
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.optim import Adam
 from torch.optim.lr_scheduler import LinearLR
-from torch_geometric.loader import DataLoader, DataListLoader
-from torch_geometric.nn import DataParallel as PyGDataParallel
+from torch.utils.data.distributed import DistributedSampler
+from torch_geometric.loader import DataLoader
 
 from gnome.model_to_scan import GNoMEStructural
 
@@ -68,6 +78,37 @@ AXIS_VALUES = {
 }
 
 
+# ── DDP helpers ─────────────────────────────────────────────────────────────────
+
+def _is_main() -> bool:
+    """True when not in DDP or when this process is rank-0."""
+    return not dist.is_initialized() or dist.get_rank() == 0
+
+
+def _local_rank() -> int:
+    """Local GPU index; falls back to 0 when not launched via torchrun."""
+    return int(os.environ.get("LOCAL_RANK", 0))
+
+
+# ── Reproducibility ─────────────────────────────────────────────────────────────
+
+def _seed_all(seed: int) -> None:
+    """Seed Python, NumPy, and PyTorch (CPU + all CUDA devices).
+
+    cudnn.deterministic eliminates non-deterministic scatter/gather kernels
+    used in PyG message passing. cudnn.benchmark is disabled so the same
+    convolution algorithm is selected on every run.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+# ── Config ──────────────────────────────────────────────────────────────────────
+
 @dataclass
 class ScanConfig:
     """One training run's full hyperparameter set and fixed search settings."""
@@ -83,8 +124,8 @@ class ScanConfig:
     use_adj_norm: bool = True
 
     # Fixed training settings per the locked plan: no EMA, seed 0.
-    # Epochs cut from 500 to 200 (2026-06-17): Stage B ablation already reached
-    # MAE=24.4 meV/atom at 200 epochs, so 500 is excess compute for search purposes.
+    # Epochs cut from 500 to 200 (2026-06-17): Stage B ablation reached
+    # MAE=24.4 meV/atom at 200 epochs; 500 is excess compute for search.
     # Effective batch = batch_size * accum_steps = 256, matching Stage A.
     epochs: int = 200
     batch_size: int = 128
@@ -94,61 +135,73 @@ class ScanConfig:
     seed: int = 0
 
     # System.
-    device: str = "cuda"
     num_workers: int = 0
     log_every: int = 25
-    # When True and >1 GPU is visible, uses PyG DataParallel across all devices.
-    # Mathematically equivalent to single-GPU (no batch-dependent layers in the
-    # model; loss is a per-graph mean), verified 2026-06-17.
-    parallel: bool = True
+    # Resume checkpoint saved every resume_every epochs; a crash loses at most
+    # resume_every epochs of work. summary.json handles fully-completed runs;
+    # resume.pt handles mid-run restarts.
+    resume_every: int = 10
 
     run_name: str = "scan_run"
     runs_dir: str = str(RUNS_DIR)
 
+
+# ── Training ────────────────────────────────────────────────────────────────────
 
 def train_one(cfg: ScanConfig) -> dict:
     """Train one model with no EMA and return its summary including best MAE.
 
     Mirrors the no-EMA loop in train.py but builds the parameterised model,
     reads the stratified subset, and uses gradient accumulation for an effective
-    batch of 256; early stopping is omitted so every run sees the full epoch
-    budget and the best-MAE numbers stay comparable across runs.
+    batch of 256. Early stopping is omitted so every run sees the full epoch
+    budget and best-MAE numbers are comparable across runs.
+
+    Compatible with single-GPU (python) and multi-GPU DDP (torchrun) launches.
+    In DDP mode each rank trains on a DistributedSampler slice; metrics are
+    all-reduced across ranks so logged values are global. Only rank-0 writes
+    checkpoints, history, and summary.
     """
-    torch.manual_seed(cfg.seed)
-    device = torch.device(cfg.device)
-    parallel = cfg.parallel and torch.cuda.device_count() > 1
+    _seed_all(cfg.seed)
+    ddp = dist.is_initialized()
+    rank = dist.get_rank() if ddp else 0
+    world_size = dist.get_world_size() if ddp else 1
+    device = torch.device(
+        f"cuda:{_local_rank()}" if torch.cuda.is_available() else "cpu"
+    )
 
     run_dir = Path(cfg.runs_dir) / cfg.run_name
-    run_dir.mkdir(parents=True, exist_ok=True)
+    if _is_main():
+        run_dir.mkdir(parents=True, exist_ok=True)
+    if ddp:
+        # All ranks wait for rank-0 to create the run directory before proceeding.
+        dist.barrier()
 
-    # Stratified stats are required so normalisation matches the subset; using
-    # full-dataset stats here would reintroduce the known normalisation bug.
     train_data = torch.load(TRAIN_PT, weights_only=False)
-    test_data = torch.load(TEST_PT, weights_only=False)
-    stats = torch.load(STATS_PT, weights_only=False)
+    test_data  = torch.load(TEST_PT,  weights_only=False)
+    stats      = torch.load(STATS_PT, weights_only=False)
 
-    if parallel:
-        # DataListLoader keeps each Data object separate so PyG DataParallel
-        # can split the list across GPUs by graph, not by a pre-batched tensor.
-        train_loader = DataListLoader(
-            train_data, batch_size=cfg.batch_size, shuffle=True,
-            num_workers=cfg.num_workers,
+    if ddp:
+        train_sampler = DistributedSampler(
+            train_data, num_replicas=world_size, rank=rank, shuffle=True,
         )
-        test_loader = DataListLoader(
-            test_data, batch_size=cfg.batch_size, shuffle=False,
-            num_workers=cfg.num_workers,
+        test_sampler = DistributedSampler(
+            test_data, num_replicas=world_size, rank=rank, shuffle=False,
         )
     else:
-        train_loader = DataLoader(
-            train_data, batch_size=cfg.batch_size, shuffle=True,
-            num_workers=cfg.num_workers,
-        )
-        test_loader = DataLoader(
-            test_data, batch_size=cfg.batch_size, shuffle=False,
-            num_workers=cfg.num_workers,
-        )
+        train_sampler = test_sampler = None
 
-    # Parameterised model carries the two new axes plus the existing n_layers.
+    train_loader = DataLoader(
+        train_data, batch_size=cfg.batch_size,
+        shuffle=(train_sampler is None),
+        sampler=train_sampler,
+        num_workers=cfg.num_workers,
+    )
+    test_loader = DataLoader(
+        test_data, batch_size=cfg.batch_size, shuffle=False,
+        sampler=test_sampler,
+        num_workers=cfg.num_workers,
+    )
+
     model = GNoMEStructural(
         avg_adjacency=stats["avg_adjacency"],
         hidden_dim=cfg.hidden_dim,
@@ -157,10 +210,11 @@ def train_one(cfg: ScanConfig) -> dict:
         n_hidden=cfg.n_hidden,
         activation=cfg.activation,
     ).to(device)
+    # n_params computed before DDP wrapping so it reflects the actual model size.
     n_params = sum(p.numel() for p in model.parameters())
 
-    if parallel:
-        model = PyGDataParallel(model)
+    if ddp:
+        model = DDP(model, device_ids=[_local_rank()])
 
     optimizer = Adam(model.parameters(), lr=cfg.lr)
     scheduler = LinearLR(
@@ -168,26 +222,40 @@ def train_one(cfg: ScanConfig) -> dict:
         total_iters=cfg.epochs,
     )
 
-    mu = torch.tensor(stats["label_mean"], device=device)
-    sigma = torch.tensor(stats["label_std"], device=device)
+    mu    = torch.tensor(stats["label_mean"], device=device)
+    sigma = torch.tensor(stats["label_std"],  device=device)
 
-    best_mae = float("inf")
-    history = []
+    best_mae  = float("inf")
+    history   = []
+    start_epoch = 0
 
-    for epoch in range(cfg.epochs):
+    # Resume from a mid-run checkpoint if one exists. rank-0 wrote it; all
+    # ranks load from the same path (shared filesystem on a single machine).
+    resume_path = run_dir / "resume.pt"
+    if resume_path.exists():
+        ckpt = torch.load(resume_path, map_location=device, weights_only=False)
+        raw_model = model.module if ddp else model
+        raw_model.load_state_dict(ckpt["model_state"])
+        optimizer.load_state_dict(ckpt["optimizer_state"])
+        scheduler.load_state_dict(ckpt["scheduler_state"])
+        start_epoch = ckpt["epoch"] + 1
+        best_mae    = ckpt["best_mae"]
+        history     = ckpt["history"]
+        if _is_main():
+            print(f"  [{cfg.run_name}] resumed from epoch {start_epoch}")
+
+    for epoch in range(start_epoch, cfg.epochs):
+        # DistributedSampler seeds its shuffle from the epoch index; must be
+        # updated each epoch so successive epochs see different orderings.
+        if ddp and train_sampler is not None:
+            train_sampler.set_epoch(epoch)
+
         t0 = time.time()
-        if parallel:
-            train_loss = _train_epoch_parallel(
-                model, train_loader, optimizer, mu, sigma,
-                cfg.grad_clip, cfg.accum_steps,
-            )
-            test_mae = _eval_epoch_parallel(model, test_loader, mu, sigma)
-        else:
-            train_loss = _train_epoch(
-                model, train_loader, optimizer, mu, sigma, device,
-                cfg.grad_clip, cfg.accum_steps,
-            )
-            test_mae = _eval_epoch(model, test_loader, mu, sigma, device)
+        train_loss = _train_epoch(
+            model, train_loader, optimizer, mu, sigma, device,
+            cfg.grad_clip, cfg.accum_steps, ddp,
+        )
+        test_mae = _eval_epoch(model, test_loader, mu, sigma, device, ddp)
         scheduler.step()
         wall = time.time() - t0
 
@@ -199,52 +267,96 @@ def train_one(cfg: ScanConfig) -> dict:
             "wall_seconds": wall,
         })
 
-        if epoch % cfg.log_every == 0:
-            print(
-                f"  [{cfg.run_name}] epoch {epoch:>3d}  "
-                f"test_MAE {test_mae * 1000:>6.1f} meV/atom  "
-                f"lr {optimizer.param_groups[0]['lr']:.2e}  ({wall:.1f}s)"
-            )
+        if _is_main():
+            # Log at every log_every epoch and always at the final epoch so
+            # the last data point is never silently missing from the output.
+            if epoch % cfg.log_every == 0 or epoch == cfg.epochs - 1:
+                print(
+                    f"  [{cfg.run_name}] epoch {epoch:>3d}  "
+                    f"test_MAE {test_mae * 1000:>6.1f} meV/atom  "
+                    f"lr {optimizer.param_groups[0]['lr']:.2e}  ({wall:.1f}s)"
+                )
 
-        # Best test MAE over the run is the search decision metric; the best
-        # checkpoint is kept so a winning architecture can be reloaded later.
-        # model.module is used under DataParallel so the saved state_dict
-        # loads directly into a plain GNoMEStructural later, with no "module."
-        # key prefix to strip.
-        if test_mae < best_mae:
-            best_mae = test_mae
-            state = model.module.state_dict() if parallel else model.state_dict()
-            torch.save({
-                "epoch": epoch,
-                "model_state": state,
-                "config": asdict(cfg),
-                "stats": stats,
-                "test_mae": test_mae,
-            }, run_dir / "best.pt")
+            # Best-MAE checkpoint; state stripped of DDP wrapper so it loads
+            # directly into a plain GNoMEStructural without key-prefix surgery.
+            if test_mae < best_mae:
+                best_mae = test_mae
+                state = model.module.state_dict() if ddp else model.state_dict()
+                torch.save({
+                    "epoch": epoch,
+                    "model_state": state,
+                    "config": asdict(cfg),
+                    "stats": stats,
+                    "test_mae": test_mae,
+                }, run_dir / "best.pt")
 
-    with open(run_dir / "history.json", "w") as f:
-        json.dump(history, f, indent=2)
+            # Resume checkpoint written periodically; overwritten each time to
+            # keep disk use constant. Captures full training state so a restart
+            # is identical to an uninterrupted run from this epoch forward.
+            if (epoch + 1) % cfg.resume_every == 0:
+                state = model.module.state_dict() if ddp else model.state_dict()
+                torch.save({
+                    "epoch": epoch,
+                    "model_state": state,
+                    "optimizer_state": optimizer.state_dict(),
+                    "scheduler_state": scheduler.state_dict(),
+                    "best_mae": best_mae,
+                    "history": history,
+                }, resume_path)
 
-    summary = {
-        "run_name": cfg.run_name,
-        "n_hidden": cfg.n_hidden,
-        "activation": cfg.activation,
-        "n_layers": cfg.n_layers,
-        "lr": cfg.lr,
-        "best_test_mae_meV": best_mae * 1000,
-        "n_params": n_params,
+    # All ranks must finish training before rank-0 writes summary.json,
+    # which is the completion marker used by run_axis to skip finished runs.
+    if ddp:
+        dist.barrier()
+
+    if _is_main():
+        with open(run_dir / "history.json", "w") as f:
+            json.dump(history, f, indent=2)
+
+        summary = {
+            "run_name":           cfg.run_name,
+            "n_hidden":           cfg.n_hidden,
+            "activation":         cfg.activation,
+            "n_layers":           cfg.n_layers,
+            "lr":                 cfg.lr,
+            "best_test_mae_meV":  best_mae * 1000,
+            "n_params":           n_params,
+        }
+        with open(run_dir / "summary.json", "w") as f:
+            json.dump(summary, f, indent=2)
+
+        # Remove resume.pt once the run completes; summary.json is now the
+        # completion marker and resume.pt is no longer needed.
+        if resume_path.exists():
+            resume_path.unlink()
+
+    # All ranks wait for rank-0 to write summary.json before moving to the
+    # next run in run_axis, so every rank sees a consistent filesystem state.
+    if ddp:
+        dist.barrier()
+
+    # Constructed on all ranks; only rank-0 uses it in run_axis, but the
+    # values are identical because test_mae was all-reduced during training.
+    return {
+        "run_name":           cfg.run_name,
+        "n_hidden":           cfg.n_hidden,
+        "activation":         cfg.activation,
+        "n_layers":           cfg.n_layers,
+        "lr":                 cfg.lr,
+        "best_test_mae_meV":  best_mae * 1000,
+        "n_params":           n_params,
     }
-    with open(run_dir / "summary.json", "w") as f:
-        json.dump(summary, f, indent=2)
-
-    return summary
 
 
-def _train_epoch(model, loader, optimizer, mu, sigma, device, grad_clip, accum_steps):
+def _train_epoch(
+    model, loader, optimizer, mu, sigma, device,
+    grad_clip, accum_steps, ddp=False,
+):
     """One training epoch with gradient accumulation; returns mean normalised loss.
 
     Loss is divided by accum_steps so accumulated gradients equal a single pass
     over the full effective batch; the optimiser steps every accum_steps batches.
+    In DDP mode, local loss sums are all-reduced for accurate global logging.
     """
     model.train()
     total, count = 0.0, 0
@@ -253,8 +365,7 @@ def _train_epoch(model, loader, optimizer, mu, sigma, device, grad_clip, accum_s
     for step, batch in enumerate(loader):
         batch = batch.to(device)
         target_norm = (batch.y - mu) / sigma
-
-        pred_norm = model(batch)
+        pred_norm   = model(batch)
         loss = (pred_norm - target_norm).abs().mean() / accum_steps
         loss.backward()
 
@@ -268,65 +379,33 @@ def _train_epoch(model, loader, optimizer, mu, sigma, device, grad_clip, accum_s
             optimizer.step()
             optimizer.zero_grad()
 
+    if ddp:
+        # Reduce local sums to produce the global training loss for logging.
+        t = torch.tensor([total, float(count)], device=device)
+        dist.all_reduce(t, op=dist.ReduceOp.SUM)
+        return (t[0] / t[1]).item()
     return total / count
 
 
-def _train_epoch_parallel(model, loader, optimizer, mu, sigma, grad_clip, accum_steps):
-    """Multi-GPU train epoch using PyG DataParallel.
+def _eval_epoch(model, loader, mu, sigma, device, ddp=False):
+    """One evaluation pass; returns MAE in eV/atom on the stratified test set.
 
-    DataParallel gathers outputs back to the primary device in the same order
-    as the input data_list, so targets are obtained by concatenating data.y
-    from that same list directly; no manual re-splitting is needed.
+    Each rank evaluates its DistributedSampler slice; absolute errors are
+    all-reduced to produce the global MAE, matching the single-GPU metric.
     """
-    model.train()
-    total, count = 0.0, 0
-    optimizer.zero_grad()
-
-    for step, data_list in enumerate(loader):
-        target = torch.cat([d.y for d in data_list])
-        pred_norm = model(data_list)
-        target_norm = (target.to(pred_norm.device) - mu) / sigma
-        loss = (pred_norm - target_norm).abs().mean() / accum_steps
-        loss.backward()
-
-        n_graphs = len(data_list)
-        total += loss.item() * accum_steps * n_graphs
-        count += n_graphs
-
-        if (step + 1) % accum_steps == 0 or (step + 1) == len(loader):
-            if grad_clip is not None:
-                nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
-            optimizer.step()
-            optimizer.zero_grad()
-
-    return total / count
-
-
-def _eval_epoch_parallel(model, loader, mu, sigma):
-    """Multi-GPU eval epoch; returns MAE in eV/atom, mirrors _eval_epoch."""
-    model.eval()
-    total, count = 0.0, 0
-    with torch.no_grad():
-        for data_list in loader:
-            target = torch.cat([d.y for d in data_list])
-            pred = model(data_list) * sigma + mu
-            total += (pred - target.to(pred.device)).abs().sum().item()
-            count += len(data_list)
-    return total / count
-
-
-def _eval_epoch(model, loader, mu, sigma, device):
-    """One evaluation pass; returns MAE in eV/atom on the stratified test set."""
     model.eval()
     total, count = 0.0, 0
     with torch.no_grad():
         for batch in loader:
             batch = batch.to(device)
-            # De-normalise to physical units before MAE so the metric is in
-            # eV/atom and directly comparable across runs.
             pred = model(batch) * sigma + mu
             total += (pred - batch.y).abs().sum().item()
             count += batch.num_graphs
+
+    if ddp:
+        t = torch.tensor([total, float(count)], device=device)
+        dist.all_reduce(t, op=dist.ReduceOp.SUM)
+        return (t[0] / t[1]).item()
     return total / count
 
 
@@ -337,7 +416,6 @@ def load_ledger() -> dict:
     if LEDGER_PATH.exists():
         with open(LEDGER_PATH) as f:
             return json.load(f)
-    # A fresh ledger has nothing resolved and every axis pending in fixed order.
     return {"resolved": {}, "pending": list(ORDER), "runs": []}
 
 
@@ -357,7 +435,6 @@ def _anchor_configs(ledger: dict) -> list[dict]:
     resolved = ledger["resolved"]
     keys = [k for k in ORDER if k in resolved]
     if not keys:
-        # No axis resolved yet, so the only anchor is the full base model.
         return [dict(BASE_DEFAULTS)]
 
     anchors = []
@@ -380,13 +457,17 @@ def run_axis(axis: str) -> dict:
     Trains anchors x AXIS_VALUES[axis] runs, records every run, selects the
     winning axis value, and appends {base, winner} to the resolved set (the base
     alone if no improvement). Returns the updated ledger.
+
+    DDP-safe: I/O is gated by _is_main(); all ranks participate in each
+    train_one call; barriers inside train_one prevent rank interleaving.
+    All ranks share the same filesystem so skip/run decisions are identical
+    across ranks without any broadcast.
     """
     if axis not in AXIS_VALUES:
         raise ValueError(f"unknown axis '{axis}'; choose from {list(AXIS_VALUES)}")
 
     ledger = load_ledger()
 
-    # Ordering guard: every earlier axis must be resolved so anchors are complete.
     earlier = ORDER[: ORDER.index(axis)]
     missing = [a for a in earlier if a not in ledger["resolved"]]
     if missing:
@@ -398,17 +479,18 @@ def run_axis(axis: str) -> dict:
         raise RuntimeError(f"axis '{axis}' already resolved; nothing to do")
 
     anchors = _anchor_configs(ledger)
-    values = AXIS_VALUES[axis]
-    print(
-        f"=== axis '{axis}': {len(anchors)} anchor(s) x {len(values)} value(s) "
-        f"= {len(anchors) * len(values)} run(s) ==="
-    )
+    values  = AXIS_VALUES[axis]
+    if _is_main():
+        print(
+            f"=== axis '{axis}': {len(anchors)} anchor(s) x {len(values)} value(s) "
+            f"= {len(anchors) * len(values)} run(s) ==="
+        )
 
     axis_results = []
     for ai, anchor in enumerate(anchors):
         for val in values:
-            cfg_kwargs = dict(anchor)
-            cfg_kwargs[axis] = val
+            cfg_kwargs         = dict(anchor)
+            cfg_kwargs[axis]   = val
             run_name = (
                 f"{axis}__h{cfg_kwargs['n_hidden']}"
                 f"_{cfg_kwargs['activation']}"
@@ -416,39 +498,42 @@ def run_axis(axis: str) -> dict:
                 f"_lr{cfg_kwargs['lr']:g}"
                 f"__a{ai}"
             )
-            cfg = ScanConfig(run_name=run_name, **cfg_kwargs)
+            cfg          = ScanConfig(run_name=run_name, **cfg_kwargs)
             summary_path = Path(cfg.runs_dir) / run_name / "summary.json"
-            # Reuse a completed run so an interrupted axis resumes without
-            # repeating finished work; a missing or unreadable file retrains.
+
+            # All ranks see the same filesystem; decision is identical without
+            # broadcasting. Reuse completed run if summary.json is valid.
             if summary_path.exists():
                 try:
                     cached = json.load(open(summary_path))
                     if "best_test_mae_meV" in cached:
-                        print(f"--- {run_name}: reuse cached result ---")
+                        if _is_main():
+                            print(f"--- {run_name}: reuse cached result ---")
                         axis_results.append(cached)
                         continue
                 except (json.JSONDecodeError, OSError):
                     pass
-            print(f"--- {run_name} ---")
+
+            if _is_main():
+                print(f"--- {run_name} ---")
             summary = train_one(cfg)
             axis_results.append(summary)
 
-    # Winner is the axis value of the lowest-MAE run; base is always carried so
-    # the resolved set is [base] or [base, winner] with no duplication.
-    base = BASE_DEFAULTS[axis]
-    winner = _winner_of(axis, axis_results)
-    resolved_values = [base] if winner == base else [base, winner]
+    base             = BASE_DEFAULTS[axis]
+    winner           = _winner_of(axis, axis_results)
+    resolved_values  = [base] if winner == base else [base, winner]
 
-    ledger["resolved"][axis] = resolved_values
-    ledger["pending"] = [a for a in ledger["pending"] if a != axis]
-    ledger["runs"].extend(axis_results)
-    save_ledger(ledger)
+    if _is_main():
+        ledger["resolved"][axis] = resolved_values
+        ledger["pending"]        = [a for a in ledger["pending"] if a != axis]
+        ledger["runs"].extend(axis_results)
+        save_ledger(ledger)
+        print(
+            f"=== axis '{axis}' done: winner={winner} "
+            f"(base={base}) -> resolved={resolved_values} ==="
+        )
+        _print_axis_table(axis, axis_results)
 
-    print(
-        f"=== axis '{axis}' done: winner={winner} "
-        f"(base={base}) -> resolved={resolved_values} ==="
-    )
-    _print_axis_table(axis, axis_results)
     return ledger
 
 
