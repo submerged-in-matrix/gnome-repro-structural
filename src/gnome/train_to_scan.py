@@ -487,16 +487,18 @@ def run_axis(axis: str) -> dict:
         )
 
     axis_results = []
-    for ai, anchor in enumerate(anchors):
+    for anchor in anchors:
         for val in values:
             cfg_kwargs         = dict(anchor)
             cfg_kwargs[axis]   = val
+            # Run name encodes only the hyperparameter config values, not the
+            # scanning axis or anchor index; the four values are jointly unique
+            # across the whole search so identical configs reuse the same folder.
             run_name = (
-                f"{axis}__h{cfg_kwargs['n_hidden']}"
+                f"h{cfg_kwargs['n_hidden']}"
                 f"_{cfg_kwargs['activation']}"
                 f"_L{cfg_kwargs['n_layers']}"
                 f"_lr{cfg_kwargs['lr']:g}"
-                f"__a{ai}"
             )
             cfg          = ScanConfig(run_name=run_name, **cfg_kwargs)
             summary_path = Path(cfg.runs_dir) / run_name / "summary.json"
