@@ -1,0 +1,9 @@
+{
+  "run_name": "n_hidden__h6_silu_L3_lr0.00055__a0",
+  "n_hidden": 6,
+  "activation": "silu",
+  "n_layers": 3,
+  "lr": 0.00055,
+  "best_test_mae_meV": 944.8673725128174,
+  "n_params": 5170433
+}
