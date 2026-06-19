@@ -1,0 +1,9 @@
+{
+  "run_name": "h1_gelu_L3_lr0.00055",
+  "n_hidden": 1,
+  "activation": "gelu",
+  "n_layers": 3,
+  "lr": 0.00055,
+  "best_test_mae_meV": 32.953351736068726,
+  "n_params": 2209793
+}

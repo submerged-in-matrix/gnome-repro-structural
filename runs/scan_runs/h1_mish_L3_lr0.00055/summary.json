@@ -1,0 +1,9 @@
+{
+  "run_name": "h1_mish_L3_lr0.00055",
+  "n_hidden": 1,
+  "activation": "mish",
+  "n_layers": 3,
+  "lr": 0.00055,
+  "best_test_mae_meV": 34.348390996456146,
+  "n_params": 2209793
+}
