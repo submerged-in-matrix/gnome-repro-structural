@@ -1,5 +1,5 @@
 {
-  "run_name": "n_hidden__h4_silu_L3_lr0.00055__a0",
+  "run_name": "h4_silu_L3_lr0.00055",
   "n_hidden": 4,
   "activation": "silu",
   "n_layers": 3,
