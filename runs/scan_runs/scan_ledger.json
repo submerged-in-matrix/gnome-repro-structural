@@ -1,19 +1,13 @@
 {
   "resolved": {
-    "n_hidden": [
-      1
-    ],
-    "activation": [
-      "silu"
-    ]
+    "n_hidden": [1],
+    "activation": ["silu"],
+    "n_layers": [3]
   },
-  "pending": [
-    "n_layers",
-    "lr"
-  ],
+  "pending": ["lr"],
   "runs": [
     {
-      "run_name": "n_hidden__h1_silu_L3_lr0.00055__a0",
+      "run_name": "h1_silu_L3_lr0.00055",
       "n_hidden": 1,
       "activation": "silu",
       "n_layers": 3,
@@ -22,7 +16,7 @@
       "n_params": 2209793
     },
     {
-      "run_name": "n_hidden__h2_silu_L3_lr0.00055__a0",
+      "run_name": "h2_silu_L3_lr0.00055",
       "n_hidden": 2,
       "activation": "silu",
       "n_layers": 3,
@@ -31,7 +25,7 @@
       "n_params": 2801921
     },
     {
-      "run_name": "n_hidden__h3_silu_L3_lr0.00055__a0",
+      "run_name": "h3_silu_L3_lr0.00055",
       "n_hidden": 3,
       "activation": "silu",
       "n_layers": 3,
@@ -40,7 +34,7 @@
       "n_params": 3394049
     },
     {
-      "run_name": "n_hidden__h4_silu_L3_lr0.00055__a0",
+      "run_name": "h4_silu_L3_lr0.00055",
       "n_hidden": 4,
       "activation": "silu",
       "n_layers": 3,
@@ -49,7 +43,7 @@
       "n_params": 3986177
     },
     {
-      "run_name": "n_hidden__h6_silu_L3_lr0.00055__a0",
+      "run_name": "h6_silu_L3_lr0.00055",
       "n_hidden": 6,
       "activation": "silu",
       "n_layers": 3,

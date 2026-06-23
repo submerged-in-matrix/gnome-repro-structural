@@ -45,8 +45,7 @@ from torch_geometric.loader import DataLoader
 from gnome.model_to_scan import GNoMEStructural
 
 
-# Stratified subset on Kaggle; read-only input mount. All three files
-# (train/test/stats_stratified) live in the same dataset folder.
+## Kaggle paths 
 DATA_DIR = Path("/kaggle/input/datasets/saidul1991/gnome-stratified")
 TRAIN_PT = DATA_DIR / "train_stratified.pt"
 TEST_PT = DATA_DIR / "test_stratified.pt"
@@ -55,6 +54,15 @@ STATS_PT = DATA_DIR / "stats_stratified.pt"
 # Writable Kaggle scratch holds per-run outputs and the persistent ledger.
 RUNS_DIR = Path("/kaggle/working/scan_runs")
 LEDGER_PATH = RUNS_DIR / "scan_ledger.json"
+
+
+# # Local paths
+# DATA_DIR = Path("data/processed")
+# TRAIN_PT = DATA_DIR / "train_stratified.pt"
+# TEST_PT  = DATA_DIR / "test_stratified.pt"
+# STATS_PT = DATA_DIR / "stats_stratified.pt"
+# RUNS_DIR = Path("runs/scan_runs")
+# LEDGER_PATH = RUNS_DIR / "scan_ledger.json"
 
 # Fixed search order; an axis may run only after all earlier axes are resolved.
 ORDER = ["n_hidden", "activation", "n_layers", "lr"]
@@ -135,7 +143,7 @@ class ScanConfig:
     seed: int = 0
 
     # System.
-    num_workers: int = 0
+    num_workers: int = 0 # for my local machine I tried 4; must be reduced to 0 for Kaggle to avoid OOM from too many workers
     log_every: int = 25
     # Resume checkpoint saved every resume_every epochs; a crash loses at most
     # resume_every epochs of work. summary.json handles fully-completed runs;
