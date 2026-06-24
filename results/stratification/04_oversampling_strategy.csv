@@ -1,8 +1,3 @@
-n_elements,MP_count,MP_fraction_%,WBM_fraction_%,required_n,oversample_factor
-1,700,0.46,0.0,0,0.0
-2,20262,13.24,12.6,19276,0.95
-3,66594,43.52,73.91,113091,1.7
-4,44953,29.38,13.2,20198,0.45
-5,15789,10.32,0.28,435,0.03
-6,4483,2.93,0.0,0,0.0
-7,202,0.13,0.0,0,0.0
+version https://git-lfs.github.com/spec/v1
+oid sha256:9135996965ccec5f1a522f162a2de826526e45a5c0361cbd8a57553b8156f570
+size 261
