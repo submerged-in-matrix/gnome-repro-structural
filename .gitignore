@@ -17,7 +17,7 @@ wandb/
 *.zip
 *.png
 *.jpg
-
+*.db
 # OS / editor
 .DS_Store
 .idea/
