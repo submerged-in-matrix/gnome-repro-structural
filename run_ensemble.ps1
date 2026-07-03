@@ -5,11 +5,16 @@
 $ErrorActionPreference = "Stop"
 
 # Repo root; edit this one line if the project is moved.
-$repo    = "E:\Projects\gnome-repro-structural"
+$repo    = ".\"
 $dataDir = Join-Path $repo "data"
 $runsDir = Join-Path $repo "runs"
 $seeds   = 0..5
-$epochs  = 500
+$epochs  = 3
+# Physical batch size per forward pass.  Halved from the 128 default so the
+# Adam foreach kernels fit in GPU memory; accum_steps is doubled to keep the
+# effective batch at 256 (= 64 × 4).
+$batchSize  = 64
+$accumSteps = 4
 
 foreach ($seed in $seeds) {
     # summary.json is written only after the full epoch loop completes, so it
@@ -25,7 +30,9 @@ foreach ($seed in $seeds) {
         --seed $seed `
         --epochs $epochs `
         --data-dir $dataDir `
-        --runs-dir $runsDir
+        --runs-dir $runsDir `
+        --batch-size $batchSize `
+        --accum-steps $accumSteps
     if ($LASTEXITCODE -ne 0) {
         Write-Host "seed $seed FAILED (exit $LASTEXITCODE) -> stop" -ForegroundColor Red
         exit $LASTEXITCODE

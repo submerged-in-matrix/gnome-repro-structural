@@ -22,6 +22,10 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=500)
     parser.add_argument("--data-dir", type=str, default="./data")
     parser.add_argument("--runs-dir", type=str, default="./runs")
+    # Allow lowering physical batch size to fit in GPU memory while keeping
+    # the effective batch (batch_size * accum_steps = 256) unchanged.
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--accum-steps", type=int, default=2)
     args = parser.parse_args()
 
     # Architecture and EMA fields are omitted on purpose: StageAConfig defaults
@@ -35,6 +39,8 @@ def main() -> None:
         seed=args.seed,
         epochs=args.epochs,
         lr=PAPER_LR,
+        batch_size=args.batch_size,
+        accum_steps=args.accum_steps,
     )
     fit_stage_a(cfg)
 
