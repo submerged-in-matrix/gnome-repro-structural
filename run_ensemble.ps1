@@ -9,7 +9,7 @@ $repo    = ".\"
 $dataDir = Join-Path $repo "data"
 $runsDir = Join-Path $repo "runs"
 $seeds   = 0..5
-$epochs  = 3
+$epochs  = 500
 # Physical batch size per forward pass.  Halved from the 128 default so the
 # Adam foreach kernels fit in GPU memory; accum_steps is doubled to keep the
 # effective batch at 256 (= 64 × 4).

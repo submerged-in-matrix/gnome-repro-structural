@@ -1,6 +1,6 @@
 {
-  "run_name": "ensemble/seed_0",
-  "best_val_mae_ema_meV": 23.31691257353085,
+  "run_name": "ensemble/seed_3",
+  "best_val_mae_ema_meV": 24.328421247534646,
   "final_epoch": 499,
   "n_train": 129754,
   "n_test": 23248,
