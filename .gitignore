@@ -10,7 +10,6 @@ data/
 wandb/
 
 # Stray binaries
-*.pt
 *.pkl
 *.json.gz
 *.csv.gz
