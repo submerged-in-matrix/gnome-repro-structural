@@ -1,8 +1,10 @@
 """Stage D (ensemble): WBM evaluation for the 6-seed ensemble.
 
-Paper-faithful aggregation: min-TTA per model, then mean across the 6
+Paper-faithful aggregation: min-TTA per model, then median across the 6
 models. Reuses load_model / scale_structure / load_wbm_structures from
-eval_wbm.py unchanged; no TTA or metric logic is duplicated here.
+eval_wbm.py unchanged; no TTA or metric logic is duplicated here. However, the ensemble
+was first inferenced using mean. Then with a seperate script i will load the predictions 
+and compute the metrics using median.
 
 Efficiency note: the 20 volume-scaled graphs for a structure do not
 depend on which model evaluates them. They are built once per structure
@@ -14,13 +16,13 @@ Outputs (under --ensemble-dir, default runs/ensemble)
 seed_N/predictions_wbm.csv       per-seed min-TTA predictions (schema
                                   matches eval_wbm.py's output, so
                                   f1_wbm.py runs on it unchanged)
-predictions_wbm.csv              ensemble predictions (mean of 6 mins)
+predictions_wbm.csv              ensemble predictions (median of 6 mins)
 metrics_wbm_ensemble.json        MAE/RMSE/bias for each seed AND ensemble
 
 Usage
 -----
     python scripts/eval_wbm_ensemble.py
-    python scripts/eval_wbm_ensemble.py --limit 1000       # sanity check
+    python scripts/eval_wbm_ensemble.py --limit 1000      
 """
 from __future__ import annotations
 
@@ -92,7 +94,7 @@ def compute_metrics(pred_df: pd.DataFrame, summary: pd.DataFrame, e_col: str) ->
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Ensemble WBM eval, min-TTA per model then mean")
+    parser = argparse.ArgumentParser(description="Ensemble WBM eval, min-TTA per model then median")
     parser.add_argument("--ensemble-dir", type=Path, default=_REPO_ROOT / "runs" / "ensemble",
                          help="Directory containing seed_0 .. seed_5 subfolders with best.pt")
     parser.add_argument("--wbm-structs", type=Path,
@@ -142,7 +144,7 @@ def main():
         for s_idx, v in enumerate(seed_vals):
             per_seed_preds[s_idx].append(v if v is not None else float("nan"))
         valid = [v for v in seed_vals if v is not None]
-        ensemble_preds.append(float(np.mean(valid)) if valid else float("nan"))
+        ensemble_preds.append(float(np.median(valid)) if valid else float("nan"))
 
         if (i + 1) % args.batch_report_every == 0:
             elapsed   = time.time() - t0
@@ -187,7 +189,7 @@ def main():
 
     metrics = {"seeds": {}, "ensemble": None,
                "ground_truth_column": e_col,
-               "tta_aggregation": "min_per_model_then_mean_across_ensemble",
+               "tta_aggregation": "min_per_model_then_median_across_ensemble",
                "n_ensemble_members": len(SEEDS)}
 
     for s_idx, seed in enumerate(SEEDS):

@@ -39,11 +39,11 @@
   },
   "ensemble": {
     "n_structures": 256939,
-    "mae_meV_per_atom": 104.71,
-    "rmse_meV_per_atom": 165.4588,
-    "bias_meV_per_atom": -47.5431
+    "mae_meV_per_atom": 105.2593,
+    "rmse_meV_per_atom": 165.8607,
+    "bias_meV_per_atom": -48.1747
   },
   "ground_truth_column": "e_form_per_atom_wbm",
-  "tta_aggregation": "min_per_model_then_median_across_ensemble",
+  "tta_aggregation": "min_per_model_then_mean_across_ensemble",
   "n_ensemble_members": 6
 }
