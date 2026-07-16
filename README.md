@@ -176,6 +176,17 @@ run_ensemble.ps1        Orchestrates 6-seed ensemble training
 
 ---
 
+## Credits
+
+- Big thanks to [Rajib](https://github.com/RajibTheKing) — a Doctoral
+Researcher in Real-Time / Embedded Systems in CAU — who let me run the ensemble
+training on his RTX 4070 Ti and helped debug some gnarly bugs along the
+way (including catching issues in the ensemble training/eval scripts).
+This project would have struggled with budget and slowed down significantly without that GPU and that second
+pair of eyes.
+
+---
+
 ## Extensions
 
 ### Currently working on — MLIP pre-relaxation of WBM structures
