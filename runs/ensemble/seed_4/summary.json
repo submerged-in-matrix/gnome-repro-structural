@@ -1,0 +1,9 @@
+{
+  "run_name": "ensemble/seed_4",
+  "best_val_mae_ema_meV": 23.782426813144316,
+  "final_epoch": 499,
+  "n_train": 129754,
+  "n_test": 23248,
+  "n_params": 2209793,
+  "effective_batch": 256
+}
