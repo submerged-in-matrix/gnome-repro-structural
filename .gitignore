@@ -6,7 +6,7 @@ __pycache__/
 .python-version
 
 # Project data (rebuildable)
-data/
+data/processed
 wandb/
 
 # Stray binaries
