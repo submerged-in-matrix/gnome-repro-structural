@@ -128,11 +128,23 @@ def load_existing_output(out_path: Path) -> tuple[dict, set[str]]:
     return data, done_ids
 
 
+def _json_default(o):
+    """Fallback for json.dump: convert numpy scalar types to native Python
+    types. Only triggered for types the default encoder cannot already
+    handle (e.g. numpy.float32 from CHGNet's final_magmom) -- harmless and
+    inert on environments where this type mismatch does not occur."""
+    if type(o).__name__ in ("float32", "float64"):
+        return float(o)
+    if type(o).__name__ in ("int32", "int64"):
+        return int(o)
+    raise TypeError(f"Object of type {o.__class__.__name__} is not JSON serializable")
+
+
 def save_output(data: dict, out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = out_path.with_suffix(".json.tmp")
     with open(tmp_path, "w") as f:
-        json.dump(data, f)
+        json.dump(data, f, default=_json_default)
     tmp_path.replace(out_path)  # atomic-ish replace, avoids truncated file on crash mid-write
 
 
