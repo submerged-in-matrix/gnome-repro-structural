@@ -1,0 +1,49 @@
+{
+  "seeds": {
+    "seed_0": {
+      "n_structures": 256941,
+      "mae_meV_per_atom": 101.5056,
+      "rmse_meV_per_atom": 162.8907,
+      "bias_meV_per_atom": -57.6418
+    },
+    "seed_1": {
+      "n_structures": 256941,
+      "mae_meV_per_atom": 104.5975,
+      "rmse_meV_per_atom": 162.791,
+      "bias_meV_per_atom": -59.6268
+    },
+    "seed_2": {
+      "n_structures": 256941,
+      "mae_meV_per_atom": 105.3251,
+      "rmse_meV_per_atom": 161.9852,
+      "bias_meV_per_atom": -63.7648
+    },
+    "seed_3": {
+      "n_structures": 256941,
+      "mae_meV_per_atom": 103.6332,
+      "rmse_meV_per_atom": 161.5536,
+      "bias_meV_per_atom": -59.6459
+    },
+    "seed_4": {
+      "n_structures": 256941,
+      "mae_meV_per_atom": 105.1092,
+      "rmse_meV_per_atom": 164.2892,
+      "bias_meV_per_atom": -64.0789
+    },
+    "seed_5": {
+      "n_structures": 256941,
+      "mae_meV_per_atom": 108.9147,
+      "rmse_meV_per_atom": 165.9075,
+      "bias_meV_per_atom": -67.5699
+    }
+  },
+  "ensemble": {
+    "n_structures": 256941,
+    "mae_meV_per_atom": 100.2462,
+    "rmse_meV_per_atom": 157.1325,
+    "bias_meV_per_atom": -61.3662
+  },
+  "ground_truth_column": "e_form_per_atom_wbm",
+  "tta_aggregation": "min_per_model_then_median_across_ensemble",
+  "n_ensemble_members": 6
+}
