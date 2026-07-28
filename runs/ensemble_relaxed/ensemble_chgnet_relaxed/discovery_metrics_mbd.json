@@ -1,0 +1,42 @@
+{
+  "full_test_set": {
+    "F1": 0.558,
+    "DAF": 2.4643,
+    "Precision": 0.4107,
+    "Recall": 0.8699,
+    "Accuracy": 0.7704,
+    "TPR": 0.8699,
+    "FPR": 0.2496,
+    "TNR": 0.7504,
+    "FNR": 0.1301,
+    "TP": 37252.0,
+    "FP": 53451.0,
+    "TN": 160687.0,
+    "FN": 5573.0,
+    "MAE": 0.0794,
+    "RMSE": 0.1274,
+    "R2": 0.4988
+  },
+  "unique_prototypes": {
+    "F1": 0.5534,
+    "DAF": 2.6433,
+    "Precision": 0.4041,
+    "Recall": 0.8775,
+    "Accuracy": 0.7835,
+    "TPR": 0.8775,
+    "FPR": 0.2335,
+    "TNR": 0.7665,
+    "FNR": 0.1225,
+    "TP": 28908.0,
+    "FP": 42630.0,
+    "TN": 139916.0,
+    "FN": 4034.0,
+    "MAE": 0.0823,
+    "RMSE": 0.1303,
+    "R2": 0.4992
+  },
+  "label": "chgnet_relaxed",
+  "predictions_file": "runs\\ensemble_relaxed\\ensemble_chgnet_relaxed\\predictions_wbm.csv",
+  "n_matched": 256963,
+  "n_outliers_masked": 2
+}

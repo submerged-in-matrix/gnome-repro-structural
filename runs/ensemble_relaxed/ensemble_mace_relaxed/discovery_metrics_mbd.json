@@ -1,0 +1,42 @@
+{
+  "full_test_set": {
+    "F1": 0.5601,
+    "DAF": 2.4827,
+    "Precision": 0.4138,
+    "Recall": 0.8669,
+    "Accuracy": 0.7732,
+    "TPR": 0.8669,
+    "FPR": 0.2456,
+    "TNR": 0.7544,
+    "FNR": 0.1331,
+    "TP": 37123.0,
+    "FP": 52599.0,
+    "TN": 161539.0,
+    "FN": 5702.0,
+    "MAE": 0.0794,
+    "RMSE": 0.1292,
+    "R2": 0.485
+  },
+  "unique_prototypes": {
+    "F1": 0.5561,
+    "DAF": 2.6671,
+    "Precision": 0.4077,
+    "Recall": 0.8741,
+    "Accuracy": 0.7867,
+    "TPR": 0.8741,
+    "FPR": 0.2291,
+    "TNR": 0.7709,
+    "FNR": 0.1259,
+    "TP": 28795.0,
+    "FP": 41829.0,
+    "TN": 140717.0,
+    "FN": 4147.0,
+    "MAE": 0.0823,
+    "RMSE": 0.1321,
+    "R2": 0.4853
+  },
+  "label": "mace_relaxed",
+  "predictions_file": "runs\\ensemble_relaxed\\ensemble_mace_relaxed\\predictions_wbm.csv",
+  "n_matched": 256963,
+  "n_outliers_masked": 3
+}

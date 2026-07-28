@@ -1,0 +1,42 @@
+{
+  "full_test_set": {
+    "F1": 0.5592,
+    "DAF": 2.5455,
+    "Precision": 0.4242,
+    "Recall": 0.8203,
+    "Accuracy": 0.7846,
+    "TPR": 0.8203,
+    "FPR": 0.2227,
+    "TNR": 0.7773,
+    "FNR": 0.1797,
+    "TP": 35131.0,
+    "FP": 47681.0,
+    "TN": 166457.0,
+    "FN": 7694.0,
+    "MAE": 0.0844,
+    "RMSE": 0.1409,
+    "R2": 0.3873
+  },
+  "unique_prototypes": {
+    "F1": 0.5556,
+    "DAF": 2.7365,
+    "Precision": 0.4183,
+    "Recall": 0.8269,
+    "Accuracy": 0.7978,
+    "TPR": 0.8269,
+    "FPR": 0.2075,
+    "TNR": 0.7925,
+    "FNR": 0.1731,
+    "TP": 27239.0,
+    "FP": 37873.0,
+    "TN": 144673.0,
+    "FN": 5703.0,
+    "MAE": 0.0864,
+    "RMSE": 0.1412,
+    "R2": 0.4122
+  },
+  "label": "unrelaxed",
+  "predictions_file": "runs\\ensemble\\predictions_wbm.csv",
+  "n_matched": 256963,
+  "n_outliers_masked": 2
+}
