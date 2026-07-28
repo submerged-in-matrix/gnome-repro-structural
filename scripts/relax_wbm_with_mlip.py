@@ -70,8 +70,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))  # for eval_wbm import
 from eval_wbm import load_wbm_structures  # reused unchanged, no duplication
 
 # Best single seed by WBM MAE (see metrics_wbm_ensemble.json: seed_0 = 106.5891 meV,
-# lowest of the 6). Hardcoded rather than auto-detected — this is a known, confirmed
-# fact from an existing file, not something to re-derive at runtime.
+
 BEST_SEED_CHECKPOINT = _REPO_ROOT / "runs" / "ensemble" / "seed_0" / "best.pt"
 
 
