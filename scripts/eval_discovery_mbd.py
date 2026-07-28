@@ -119,11 +119,29 @@ def main() -> None:
     uniq_mask = ref[_UNIQ_PROTO].astype(bool).values
     uniq_metrics = stable_metrics(each_true[uniq_mask], each_pred[uniq_mask])
 
+    # --- Score: 10k lowest predicted hull distances among unique prototypes ---
+    # Ranking uses predicted hull distance, not raw formation energy, because
+    # discovery is evaluated against the fixed DFT convex hull.
+    uniq_each_true = each_true[uniq_mask]
+    uniq_each_pred = each_pred[uniq_mask]
+    order = np.argsort(uniq_each_pred, kind="stable")  # NaN sorts last
+    top10k = order[:10_000]
+    stable10k_metrics = stable_metrics(uniq_each_true[top10k], uniq_each_pred[top10k])
+
+    # stable_metrics derives prevalence from the subset it is given. For a subset
+    # selected by predicted stability that is degenerate (prevalence == precision,
+    # DAF == 1). The leaderboard instead uses the unique-prototype prevalence,
+    # computed from unrounded hull distances, as the DAF denominator.
+    uniq_prevalence = float((uniq_each_true <= 0).mean())
+    stable10k_metrics["DAF"] = stable10k_metrics["Precision"] / uniq_prevalence
+    print(f"uniq-proto prevalence (DAF denominator): {uniq_prevalence:.4f}")
+
     # --- Print ---
     results = {}
     for subset_name, metrics in [
         ("full_test_set", full_metrics),
         ("unique_prototypes", uniq_metrics),
+        ("most_stable_10k", stable10k_metrics),
     ]:
         print(f"\n--- {subset_name} ---")
         for key in ("F1", "DAF", "Precision", "Recall", "Accuracy",

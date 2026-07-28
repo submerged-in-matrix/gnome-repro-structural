@@ -1,0 +1,216 @@
+model_name: EMA-GNN
+model_key: ema-gnn
+model_version: v0.1.0
+dates:
+  benchmark_added: '*****'
+  paper_published: null
+lifecycle: active
+authors:
+- name: Md. Saidul Islam
+  email: mdsi.buet@gmail.com
+  affiliation: Independent Researcher in Data-driven Materials Discovery
+- name: Rajib Chandra Das
+  email: rcd@informatik.uni-kiel.de
+  affiliation: Real-Time Systems / Embedded Systems Group, Institute of Computer Science, Christian-Albrechts-Universität zu Kiel
+trained_by:
+- name: Md. Saidul Islam
+  email: mdsi.buet@gmail.com
+  affiliation: Independent Researcher in Data-driven Materials Discovery
+
+repo: https://github.com/submerged-in-matrix/gnome-repro-structural
+doi: null
+paper: null
+pr_url: '*****'
+checkpoint_url: '*****'
+license:
+  code: MIT
+  code_url: https://github.com/submerged-in-matrix/gnome-repro-structural/blob/main/LICENSE
+  checkpoint: MIT
+  checkpoint_url: https://github.com/submerged-in-matrix/gnome-repro-structural/blob/main/LICENSE
+
+environment:
+  dependencies:
+  - torch=='*****'
+  - torch-geometric>=2.6
+  - pymatgen>=2024.10
+  - numpy>=1.26
+  - pandas>=2.2
+  python_version: '*****'
+
+openness: OSOD
+architecture_types: [gnn]
+train_task: RS2RE
+test_task: IS2E
+targets: E
+training_sets: [MP 2022]
+model_params: 2209793
+n_estimators: 6
+
+hyperparams:
+  architecture:
+    graph_construction_radius: 4.0 # Å
+    hidden_dim: 256
+    n_layers: 3
+    activation: silu
+    adjacency_normalization: true
+    node_features: one-hot element encoding over 100 elements
+    edge_features: 64 Gaussian radial basis functions, r_min 0.0 Å, r_max 5.0 Å
+    global_feature: learned initial vector, updated per message-passing block
+    readout: linear projection of final global feature to scalar energy
+  training:
+    optimizer: Adam
+    lr_schedule: LinearLR
+    lr_start_factor: 1.0
+    lr_end_factor: 0.1 # final lr 5.5e-5
+    learning_rate: 5.5e-4
+    epochs: 500
+    batch_size: 128
+    gradient_accumulation_steps: 2
+    effective_batch_size: 256
+    gradient_clip_norm: 1.0
+    early_stopping: disabled
+    ema_decay: 0.999
+    weights_evaluated: ema
+    loss: L1 on standardized targets
+  inference:
+    test_time_augmentation_points: 20
+    tta_aggregation: min
+    ensemble_aggregation: median
+
+notes:
+  description: |
+    A structural graph neural network that predicts the formation energy of a
+    relaxed crystal directly from an unrelaxed input structure, with no relaxation
+    step at inference time.
+
+    The architecture follows the structural GNN described in Merchant et al.,
+    Nature 624 (2023), reimplemented from the published description at reduced
+    scale. Each message-passing block updates edge, node and global features in
+    sequence, with edge-to-node messages normalized by the dataset-average
+    adjacency so that message magnitudes do not scale with coordination number.
+
+    One aspect departs from that description: training maintains an exponential
+    moving average of the weights and evaluates the averaged weights rather than
+    those from the final step. Inference follows the paper's protocol: 20-point
+    test-time augmentation per structure aggregated by minimum, with the
+    ensemble combined by median.
+
+    The existing GNoME entry on this leaderboard is a different model from the
+    same paper: the NequIP-type interatomic potential that performs structure
+    relaxation, submitted as IS2RE-SR with targets EF_G. The structural GNN
+    benchmarked here predicts energy directly from an unrelaxed input and was not
+    previously submitted.
+  training: |
+    Six independently initialized models trained on Materials Project relaxed
+    structures, 500 epochs each, on a single NVIDIA RTX 4070 Ti. Ensemble members
+    differ only in random seed and share the same training split. Per-seed
+    validation MAE ranged from 23.3 to 24.4 meV/atom with no diverged run.
+
+    Deviations from the reference description are resource-driven: six ensemble
+    members rather than ten, and 500 training epochs rather than 1000.
+
+    Hyperparameters were not assumed but searched. An anchored coordinate search
+    over hidden-layer width, activation function, network depth, and learning
+    rate was run on a stratified subset created specifically for search (WBM
+    withheld throughout; this stratified set never entered actual model
+    training). Every axis's winning value matched the architecture
+    reported in Merchant et al., despite this project training on a different,
+    reduced-scale dataset than the original paper.
+  ablation: |
+    Architecture components were validated by ablation before the final recipe
+    was locked. Three single-seed runs at 200 epochs on the earlier training
+    loop (no EMA, no gradient accumulation, early stopping enabled) each removed
+    one component, holding everything else fixed. Test MAE in meV/atom on the
+    Materials Project held-out split:
+
+      full configuration               24.42   (2,209,793 params)
+      two message-passing layers       25.14   (1,487,361 params)
+      hidden dimension 128             25.19   (  564,225 params)
+      adjacency normalization removed  25.44   (2,209,793 params)
+
+    Every removal degraded accuracy, and removing adjacency normalization was
+    the most damaging despite leaving parameter count unchanged. The ordering is
+    consistent with the components being useful. The margins are small, however,
+    and each ablation is a single seed, so they are comparable in size to the
+    1.1 meV/atom spread observed across the six seeds of the final ensemble and
+    should not be read as individually significant.
+
+    Training length and weight averaging were then evaluated at 500 epochs.
+    A single seed run recorded best EMA validation MAE of 23.77 meV/atom at
+    epoch 386, against a final-epoch raw MAE of 24.31 meV/atom — a gain of
+    0.54 meV/atom. EMA continued improving past the raw plateau, which is why
+    early stopping was disabled for the final ensemble. Two EMA decay values
+    were compared: 0.999 outperformed 0.99 and was retained.
+
+    Pre-relaxing the WBM input structures with a universal interatomic potential
+    before prediction was tested as a way to narrow the domain gap between relaxed
+    training structures and unrelaxed evaluation inputs. Both MACE-MP-0 and CHGNet
+    were evaluated as the relaxation stage.
+
+    Pre-relaxation improved regression substantially, moving MAE from 0.084 to
+    0.079 eV/atom and R2 from 0.387 to 0.499, while leaving discovery F1
+    essentially unchanged at approximately 0.56. The domain gap therefore appears
+    to limit energy accuracy without being the binding constraint on stability
+    classification. The submitted predictions use unrelaxed inputs.
+
+metrics:
+  discovery:
+    pred_file:
+      name: models/ema-gnn/2026-07-28-wbm-IS2RE.csv.gz
+      url: '*****'
+      size: 3021086
+      md5: ce87adeabc2457033bdcb0d0fbd53e9e
+    full_test_set:
+      F1: 0.5592 # fraction
+      DAF: 2.5455 # dimensionless
+      Precision: 0.4242 # fraction
+      Recall: 0.8203 # fraction
+      Accuracy: 0.7846 # fraction
+      TPR: 0.8203 # fraction
+      FPR: 0.2227 # fraction
+      TNR: 0.7773 # fraction
+      FNR: 0.1797 # fraction
+      TP: 35131 # count
+      FP: 47681 # count
+      TN: 166457 # count
+      FN: 7694 # count
+      MAE: 0.0844 # eV/atom
+      RMSE: 0.1409 # eV/atom
+      R2: 0.3873 # dimensionless
+      missing_preds: 2 # count
+    unique_prototypes:
+      F1: 0.5556 # fraction
+      DAF: 2.7365 # dimensionless
+      Precision: 0.4183 # fraction
+      Recall: 0.8269 # fraction
+      Accuracy: 0.7978 # fraction
+      TPR: 0.8269 # fraction
+      FPR: 0.2075 # fraction
+      TNR: 0.7925 # fraction
+      FNR: 0.1731 # fraction
+      TP: 27239 # count
+      FP: 37873 # count
+      TN: 144673 # count
+      FN: 5703 # count
+      MAE: 0.0864 # eV/atom
+      RMSE: 0.1412 # eV/atom
+      R2: 0.4122 # dimensionless
+      missing_preds: 2 # count
+    most_stable_10k:
+      F1: 0.8325 # fraction
+      DAF: 4.6647 # dimensionless
+      Precision: 0.7131 # fraction
+      Recall: 1.0000 # fraction
+      Accuracy: 0.7131 # fraction
+      TPR: 1.0000 # fraction
+      FPR: 1.0000 # fraction
+      TNR: 0.0000 # fraction
+      FNR: 0.0000 # fraction
+      TP: 7131 # count
+      FP: 2869 # count
+      TN: 0 # count
+      FN: 0 # count
+      MAE: 0.1145 # eV/atom
+      RMSE: 0.1607 # eV/atom
+      R2: 0.5451 # dimensionless
+      missing_preds: 0 # count

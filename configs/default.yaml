@@ -8,7 +8,7 @@ hidden_dim: 256
 n_layers: 3
 
 # Optimization
-epochs: 200 # Actually: 200
+epochs: 200       # Actually: 200
 batch_size: 128
 lr: 5.5e-4
 lr_end_factor: 0.1
