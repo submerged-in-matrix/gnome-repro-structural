@@ -1,19 +1,23 @@
 """Format WBM predictions as a Matbench Discovery submission file.
 
-The benchmark expects a gzipped CSV named <yyyy-mm-dd>-wbm-IS2RE.csv.gz holding
-material IDs matching the WBM test set and predicted formation energies per atom
-in eV/atom. The energy column name must match the pred_col field declared in the
-model YAML.
+The benchmark expects a gzipped CSV at
+
+    models/<arch-name>/<model-variant>/<yyyy-mm-dd>-discovery.csv.gz
+
+holding material IDs matching the WBM test set and predicted formation energies
+per atom in eV/atom. The energy column must be named exactly ``e_form_per_atom``:
+``matbench_discovery.data.load_df_wbm_with_preds`` indexes that literal string and
+raises if it is absent. The model key appears in the directory path, not in the
+column name, and the older ``pred_col`` YAML field is no longer part of the schema.
 
 Also emits the size and md5 checksum required by the metrics.discovery.pred_file
-block of that YAML.
+block of the model YAML.
 
 Usage
 -----
     python scripts/build_submission_preds.py \
         --predictions runs/ensemble/predictions_wbm.csv \
-        --out-dir models/ema-gnn \
-        --model-key ema-gnn
+        --out-dir models/ema-gnn/ema-gnn
 """
 
 from __future__ import annotations
@@ -29,6 +33,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 _MAT_ID = "material_id"
 _PRED_COL = "e_form_pred"
+_ENERGY_COL = "e_form_per_atom"
 
 
 def md5_of(path: Path, chunk_size: int = 1 << 20) -> str:
@@ -53,14 +58,9 @@ def main() -> None:
     parser.add_argument(
         "--out-dir",
         type=Path,
-        default=_REPO_ROOT / "models" / "ema-gnn",
-        help="Directory to write the submission file into",
-    )
-    parser.add_argument(
-        "--model-key",
-        type=str,
-        default="ema-gnn",
-        help="Model key; the energy column becomes e_form_per_atom_<model-key>",
+        default=_REPO_ROOT / "models" / "ema-gnn" / "ema-gnn",
+        help="Directory to write the submission file into; the benchmark expects "
+        "models/<arch-name>/<model-variant>/",
     )
     parser.add_argument(
         "--date",
@@ -80,10 +80,9 @@ def main() -> None:
                 f"Present columns: {sorted(preds.columns)}"
             )
 
-    energy_col = f"e_form_per_atom_{args.model_key}"
-    submission = preds[[_MAT_ID, _PRED_COL]].rename(columns={_PRED_COL: energy_col})
+    submission = preds[[_MAT_ID, _PRED_COL]].rename(columns={_PRED_COL: _ENERGY_COL})
 
-    n_missing = int(submission[energy_col].isna().sum())
+    n_missing = int(submission[_ENERGY_COL].isna().sum())
     n_duplicated = int(submission[_MAT_ID].duplicated().sum())
     print(f"rows      : {len(submission):,}")
     print(f"missing   : {n_missing:,}")
@@ -92,15 +91,21 @@ def main() -> None:
         raise ValueError("duplicate material_id values in predictions")
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = args.out_dir / f"{date_stamp}-wbm-IS2RE.csv.gz"
+    out_path = args.out_dir / f"{date_stamp}-discovery.csv.gz"
     submission.to_csv(out_path, index=False, compression="gzip")
 
     size_bytes = out_path.stat().st_size
     checksum = md5_of(out_path)
 
+    # the YAML records the path relative to the Matbench Discovery repo root
+    try:
+        yaml_name = out_path.relative_to(_REPO_ROOT).as_posix()
+    except ValueError:
+        yaml_name = out_path.as_posix()
+
     print(f"\nwrote -> {out_path}")
     print("\npaste into the model YAML under metrics.discovery.pred_file:")
-    print(f"      name: {out_path.as_posix()}")
+    print(f"      name: {yaml_name}")
     print("      url: <fill in after uploading to Zenodo>")
     print(f"      size: {size_bytes}")
     print(f"      md5: {checksum}")

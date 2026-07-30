@@ -8,7 +8,7 @@ lifecycle: active
 authors:
 - name: Md. Saidul Islam
   email: mdsi.buet@gmail.com
-  affiliation: Independent Researcher in Data-driven Materials Discovery
+  affiliation: Independent Researcher in Data-driven Materials Discovery, M.Sc in Materials Science and Engineering, Christian-Albrechts-Universität zu Kiel
 - name: Rajib Chandra Das
   email: rcd@informatik.uni-kiel.de
   affiliation: Real-Time Systems / Embedded Systems Group, Institute of Computer Science, Christian-Albrechts-Universität zu Kiel
@@ -21,21 +21,21 @@ repo: https://github.com/submerged-in-matrix/gnome-repro-structural
 doi: null
 paper: null
 pr_url: '*****'
-checkpoint_url: '*****'
+checkpoint_url: https://figshare.com/ndownloader/files/67085774 # https://doi.org/10.6084/m9.figshare.33111509
 license:
   code: MIT
   code_url: https://github.com/submerged-in-matrix/gnome-repro-structural/blob/main/LICENSE
-  checkpoint: MIT
-  checkpoint_url: https://github.com/submerged-in-matrix/gnome-repro-structural/blob/main/LICENSE
+  checkpoint: CC-BY-4.0
+  checkpoint_url: https://creativecommons.org/licenses/by/4.0/legalcode
 
 environment:
   dependencies:
-  - torch=='*****'
+  - torch>=2.11.0+cu128
   - torch-geometric>=2.6
   - pymatgen>=2024.10
   - numpy>=1.26
   - pandas>=2.2
-  python_version: '*****'
+  python_version: 3.12.3
 
 openness: OSOD
 architecture_types: [gnn]
@@ -72,7 +72,7 @@ hyperparams:
     ema_decay: 0.999
     weights_evaluated: ema
     loss: L1 on standardized targets
-  inference:
+  evaluation:
     test_time_augmentation_points: 20
     tta_aggregation: min
     ensemble_aggregation: median
@@ -156,10 +156,10 @@ notes:
 metrics:
   discovery:
     pred_file:
-      name: models/ema-gnn/2026-07-28-wbm-IS2RE.csv.gz
-      url: '*****'
-      size: 3021086
-      md5: ce87adeabc2457033bdcb0d0fbd53e9e
+      name: models/ema-gnn/ema-gnn/2026-07-29-discovery.csv.gz
+      url: https://figshare.com/ndownloader/files/67085690
+      size: 3021075
+      md5: b9519003656f1083e1a8dcc7c3915944
     full_test_set:
       F1: 0.5592 # fraction
       DAF: 2.5455 # dimensionless
