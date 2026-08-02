@@ -220,7 +220,11 @@ def load_models(
             use_adj_norm=cfg.get("use_adj_norm", True),
         ).to(device)
 
-        model.load_state_dict(ckpt["model_state"])
+        # The checkpoints were saved with an older model version that did not
+        # register the `avg_adjacency` buffers. The current model initializes
+        # them correctly from `stats["avg_adjacency"]` in the constructor, so
+        # load with strict=False to ignore the missing buffer keys.
+        model.load_state_dict(ckpt["model_state"], strict=False)
         model.eval()
         models.append(model)
 
