@@ -29,10 +29,14 @@ import argparse
 import hashlib
 import os
 import sys
+import tarfile
 import zipfile
 from copy import deepcopy
 from pathlib import Path
-
+import shutil
+import subprocess
+import time
+import urllib.request
 import numpy as np
 import pandas as pd
 import torch
@@ -51,13 +55,16 @@ N_TTA = 20
 V_MIN, V_MAX = 0.8, 1.2
 TTA_SCALES = np.linspace(V_MIN, V_MAX, N_TTA) ** (1 / 3)  # linear in volume
 
-CHECKPOINT_URL = "https://figshare.com/ndownloader/files/67085774"
+# NOTE: figshare.com/ndownloader/... is behind an AWS WAF challenge that
+# rejects non-browser clients. The legacy ndownloader.figshare.com host
+# returns a direct redirect to S3 and works with plain urllib.
+CHECKPOINT_URL = "https://ndownloader.figshare.com/files/67085774"
 CHECKPOINT_MD5 = None  # add after verifying the zip md5
 CACHE_DIR = Path.home() / ".cache" / "ema-gnn"
 
 # WBM initial structures — Figshare hosted by Matbench Discovery.
 # Columnar JSON: keys 'material_id', 'formula_from_cse', 'initial_structure'.
-WBM_STRUCTS_URL = "https://figshare.com/ndownloader/files/40344466"
+WBM_STRUCTS_URL = "https://ndownloader.figshare.com/files/40344466"
 WBM_STRUCTS_FILENAME = "2022-10-19-wbm-init-structs.json.bz2"
 
 
@@ -65,31 +72,114 @@ WBM_STRUCTS_FILENAME = "2022-10-19-wbm-init-structs.json.bz2"
 # Download helpers
 # ---------------------------------------------------------------------------
 def _download(url: str, dest: Path, label: str = "") -> None:
-    """Download a file with a progress bar. Skips if dest already exists."""
     if dest.exists():
+        print(f"Skipping {label or url} (already exists at {dest})")
         return
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    import urllib.request
-
-    print(f"Downloading {label or url} ...")
+    print(f"Downloading {label or url}")
     tmp = dest.with_suffix(".tmp")
-    urllib.request.urlretrieve(url, tmp)
+    # Use a browser-like User-Agent; some Figshare CDN edges filter by UA.
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/126.0.0.0 Safari/537.36"
+            )
+        },
+    )
+
+    try:
+        # Try urllib first; it works for hosts not behind the WAF challenge.
+        with urllib.request.urlopen(req, timeout=120) as resp, open(tmp, "wb") as f:
+            total = int(resp.headers.get("Content-Length") or 0)
+            with tqdm(
+                total=total, unit="B", unit_scale=True, desc=label or dest.name
+            ) as bar:
+                while True:
+                    chunk = resp.read(1024 * 256)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    bar.update(len(chunk))
+        if tmp.stat().st_size == 0:
+            raise RuntimeError(
+                f"empty response from {resp.geturl()} "
+                f"(status {resp.status}) — likely WAF-blocked"
+            )
+    except Exception as e:
+        tmp.unlink(missing_ok=True)
+        if not isinstance(e, RuntimeError):
+            print(f"  urllib failed ({e}); trying curl ...")
+        else:
+            print(f"  {e}; trying curl ...")
+
+        # Prefer curl.exe on Windows to bypass the PowerShell `curl` alias.
+        curl = shutil.which("curl.exe") or shutil.which("curl")
+        if curl is None:
+            raise RuntimeError(
+                "download failed and curl is not available; "
+                "install curl or download the file manually"
+            ) from e
+
+        # -L follows the Figshare 302 -> S3 presigned redirect.
+        # --retry handles transient S3 errors; -f fails on HTTP errors.
+        # NOTE: do NOT send a browser User-Agent here. The WAF checks
+        # UA/TLS-fingerprint consistency: a Chrome UA with curl's TLS
+        # fingerprint is flagged (HTTP 202 + empty body), while curl's
+        # default UA passes.
+        cmd = [
+            curl,
+            "-L",
+            "-f",
+            "--retry",
+            "3",
+            "--retry-delay",
+            "2",
+            "-o",
+            str(tmp),
+            url,
+        ]
+        # The WAF may rate-limit the rapid urllib->curl sequence and answer
+        # with a 202 challenge (empty body). Retry with backoff until we get
+        # a non-empty file.
+        last_err: Exception | None = None
+        for attempt in range(4):
+            try:
+                subprocess.run(cmd, check=True)
+            except subprocess.CalledProcessError as e:
+                last_err = e
+                tmp.unlink(missing_ok=True)
+                time.sleep(2 * (attempt + 1))
+                continue
+            if tmp.stat().st_size > 0:
+                break
+            tmp.unlink(missing_ok=True)
+            last_err = RuntimeError(f"curl downloaded 0 bytes from {url}")
+            time.sleep(2 * (attempt + 1))
+        else:
+            raise RuntimeError(
+                f"curl failed to download {url}: {last_err}"
+            ) from last_err
+
     tmp.rename(dest)
     print(f"  saved to {dest}")
 
 
 def download_checkpoints() -> Path:
     """Download and unzip the 6-seed checkpoint archive. Returns cache dir."""
-    zip_path = CACHE_DIR / "checkpoints.zip"
-    _download(CHECKPOINT_URL, zip_path, label="checkpoints.zip")
+    zip_path = CACHE_DIR / "ema-gnn-checkpoints.tar.gz"
+    print(f"Downloading checkpoints to {zip_path} ...")
+    _download(CHECKPOINT_URL, zip_path, label="ema-gnn-checkpoints.tar.gz")
 
     # Unzip if seed_0/best.pt is missing.
     marker = CACHE_DIR / "seed_0" / "best.pt"
     if not marker.exists():
-        print("Extracting checkpoints ...")
-        with zipfile.ZipFile(zip_path, "r") as zf:
-            zf.extractall(CACHE_DIR)
+        print("Now... Extracting checkpoints")
+        with tarfile.open(zip_path, "r:gz") as tf:
+            tf.extractall(CACHE_DIR)
         assert marker.exists(), f"Expected {marker} after extraction"
         print(f"  extracted to {CACHE_DIR}")
 
