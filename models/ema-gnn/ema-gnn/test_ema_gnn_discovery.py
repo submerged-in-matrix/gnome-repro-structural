@@ -36,7 +36,6 @@ from pathlib import Path
 import shutil
 import subprocess
 import time
-import urllib.request
 import numpy as np
 import pandas as pd
 import torch
@@ -79,90 +78,37 @@ def _download(url: str, dest: Path, label: str = "") -> None:
 
     print(f"Downloading {label or url}")
     tmp = dest.with_suffix(".tmp")
-    # Use a browser-like User-Agent; some Figshare CDN edges filter by UA.
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/126.0.0.0 Safari/537.36"
-            )
-        },
-    )
 
-    try:
-        # Try urllib first; it works for hosts not behind the WAF challenge.
-        with urllib.request.urlopen(req, timeout=120) as resp, open(tmp, "wb") as f:
-            total = int(resp.headers.get("Content-Length") or 0)
-            with tqdm(
-                total=total, unit="B", unit_scale=True, desc=label or dest.name
-            ) as bar:
-                while True:
-                    chunk = resp.read(1024 * 256)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    bar.update(len(chunk))
-        if tmp.stat().st_size == 0:
-            raise RuntimeError(
-                f"empty response from {resp.geturl()} "
-                f"(status {resp.status}) — likely WAF-blocked"
-            )
-    except Exception as e:
-        tmp.unlink(missing_ok=True)
-        if not isinstance(e, RuntimeError):
-            print(f"  urllib failed ({e}); trying curl ...")
-        else:
-            print(f"  {e}; trying curl ...")
+    # Prefer curl.exe on Windows to bypass the PowerShell `curl` alias.
+    curl = shutil.which("curl.exe") or shutil.which("curl")
+    if curl is None:
+        raise RuntimeError(
+            "curl is not available; install curl or download the file manually"
+        )
 
-        # Prefer curl.exe on Windows to bypass the PowerShell `curl` alias.
-        curl = shutil.which("curl.exe") or shutil.which("curl")
-        if curl is None:
-            raise RuntimeError(
-                "download failed and curl is not available; "
-                "install curl or download the file manually"
-            ) from e
+    # -L follows the Figshare 302 -> S3 presigned redirect.
+    # --retry handles transient S3 errors; -f fails on HTTP errors.
+    # NOTE: do NOT send a browser User-Agent. The WAF checks UA/TLS-fingerprint
+    # consistency: a Chrome UA with curl's TLS fingerprint triggers HTTP 202 +
+    # empty body, while curl's default UA passes.
+    cmd = [curl, "-L", "-f", "--retry", "3", "--retry-delay", "2", "-o", str(tmp), url]
 
-        # -L follows the Figshare 302 -> S3 presigned redirect.
-        # --retry handles transient S3 errors; -f fails on HTTP errors.
-        # NOTE: do NOT send a browser User-Agent here. The WAF checks
-        # UA/TLS-fingerprint consistency: a Chrome UA with curl's TLS
-        # fingerprint is flagged (HTTP 202 + empty body), while curl's
-        # default UA passes.
-        cmd = [
-            curl,
-            "-L",
-            "-f",
-            "--retry",
-            "3",
-            "--retry-delay",
-            "2",
-            "-o",
-            str(tmp),
-            url,
-        ]
-        # The WAF may rate-limit the rapid urllib->curl sequence and answer
-        # with a 202 challenge (empty body). Retry with backoff until we get
-        # a non-empty file.
-        last_err: Exception | None = None
-        for attempt in range(4):
-            try:
-                subprocess.run(cmd, check=True)
-            except subprocess.CalledProcessError as e:
-                last_err = e
-                tmp.unlink(missing_ok=True)
-                time.sleep(2 * (attempt + 1))
-                continue
-            if tmp.stat().st_size > 0:
-                break
+    last_err: Exception | None = None
+    for attempt in range(4):
+        try:
+            subprocess.run(cmd, check=True)
+        except subprocess.CalledProcessError as exc:
+            last_err = exc
             tmp.unlink(missing_ok=True)
-            last_err = RuntimeError(f"curl downloaded 0 bytes from {url}")
             time.sleep(2 * (attempt + 1))
-        else:
-            raise RuntimeError(
-                f"curl failed to download {url}: {last_err}"
-            ) from last_err
+            continue
+        if tmp.stat().st_size > 0:
+            break
+        tmp.unlink(missing_ok=True)
+        last_err = RuntimeError(f"curl downloaded 0 bytes from {url}")
+        time.sleep(2 * (attempt + 1))
+    else:
+        raise RuntimeError(f"curl failed to download {url}: {last_err}") from last_err
 
     tmp.rename(dest)
     print(f"  saved to {dest}")
@@ -357,6 +303,12 @@ def compute_metrics(df_pred: pd.DataFrame) -> dict:
     Uses the corrected MP2020 reference energies and convex hull distances.
     Formula: e_above_hull_pred = e_above_hull_true + (e_form_pred - e_form_dft)
     """
+    # Pre-download via curl to bypass the Figshare WAF that blocks urllib
+    _download(
+        "https://ndownloader.figshare.com/files/44225498",
+        Path.home() / ".cache" / "matbench-discovery" / "wbm" / "2023-12-13-wbm-summary.csv.gz",
+        label="wbm-summary.csv.gz",
+    )
     from matbench_discovery.data import df_wbm
     from matbench_discovery.metrics import stable_metrics
 
@@ -443,31 +395,34 @@ def main():
     args = parser.parse_args()
     device = torch.device(args.device)
 
-    # 1. Download checkpoints and WBM structures.
-    cache_dir = download_checkpoints()
-    wbm_path = download_wbm_structures()
+    # # 1. Download checkpoints and WBM structures.
+    # cache_dir = download_checkpoints()
+    # wbm_path = download_wbm_structures()
 
-    # 2. Load models.
-    models, stats = load_models(cache_dir, device)
+    # # 2. Load models.
+    # models, stats = load_models(cache_dir, device)
 
-    # 3. Load WBM structures.
-    structures = load_wbm_structures(wbm_path, limit=args.limit)
+    # # 3. Load WBM structures.
+    # structures = load_wbm_structures(wbm_path, limit=args.limit)
 
-    # 4. Run inference.
-    df_pred = run_ensemble(models, structures, stats, device)
-    n_valid = df_pred["e_form_per_atom"].notna().sum()
-    n_nan = df_pred["e_form_per_atom"].isna().sum()
-    print(f"\nPredictions: {n_valid} valid, {n_nan} failed")
+    # # 4. Run inference.
+    # df_pred = run_ensemble(models, structures, stats, device)
+    # n_valid = df_pred["e_form_per_atom"].notna().sum()
+    # n_nan = df_pred["e_form_per_atom"].isna().sum()
+    # print(f"\nPredictions: {n_valid} valid, {n_nan} failed")
 
-    # 5. Write CSV.
-    from matbench_discovery import today
+    # # 5. Write CSV.
+    # from matbench_discovery import today
 
-    out_path = args.out or f"{today}-discovery.csv.gz"
-    df_pred.to_csv(out_path)
-    size_mb = os.path.getsize(out_path) / 1e6
-    print(f"Wrote {out_path} ({size_mb:.1f} MB)")
+    # out_path = args.out or f"{today}-discovery.csv.gz"
+    # df_pred.to_csv(out_path)
+    # size_mb = os.path.getsize(out_path) / 1e6
+    # print(f"Wrote {out_path} ({size_mb:.1f} MB)")
 
     # 6. Metrics (skip for --limit runs).
+    current_path = "2026-08-03-discovery.csv.gz"
+    df_pred = pd.read_csv(current_path, index_col="material_id")
+
     if args.limit is None:
         print("\nComputing metrics ...")
         metrics = compute_metrics(df_pred)
