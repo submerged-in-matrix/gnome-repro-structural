@@ -1,13 +1,18 @@
-# EMA-GNN — A GNoME-Inspired Structural GNN for Formation-Energy Prediction
+# EMA-GNN — A Structural Graph Neural Network for Formation-Energy Prediction
+
+[![Matbench Discovery](https://img.shields.io/badge/Matbench_Discovery-Live_on_Leaderboard-blue)](https://matbench-discovery.materialsproject.org/models/ema-gnn)
+[![Figshare](https://img.shields.io/badge/Figshare-DOI_10.6084%2Fm9.figshare.33111509-orange)](https://doi.org/10.6084/m9.figshare.33111509)
+[![License: MIT](https://img.shields.io/badge/Code-MIT-green)](LICENSE)
+[![License: CC-BY-4.0](https://img.shields.io/badge/Checkpoints-CC--BY--4.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 
 A message-passing graph neural network that predicts the formation energy per atom
 of a crystal directly from an unrelaxed input structure, with no relaxation step at
-inference time. Evaluated against the
-[Matbench Discovery](https://matbench-discovery.materialsproject.org/) benchmark on
-the WBM test set, and submitted to its leaderboard.
+inference time. Live on the
+[Matbench Discovery leaderboard](https://matbench-discovery.materialsproject.org/models/ema-gnn).
 
-The architecture is inspired by the structural GNN described in Merchant et al.,
-*"Scaling deep learning for materials discovery,"* Nature **624** (2023) — the GNoME
+The architecture is inspired by the structural GNN described in
+[Merchant et al., *"Scaling deep learning for materials discovery,"*
+Nature **624** (2023)](https://doi.org/10.1038/s41586-023-06735-9) — the GNoME
 paper. That description was the starting point, not an assumption. This project runs
 at a different scale, on a different training set, with its own hyperparameter
 search over width, depth, activation and learning rate. That search converged
@@ -16,28 +21,72 @@ here is therefore both the paper's answer and the search's answer, arrived at tw
 by different routes.
 
 The paper describes two models. The entry already on the Matbench Discovery
-leaderboard under the name GNoME is the other one — a NequIP-type interatomic
-potential that performs structure relaxation, submitted as `IS2RE-SR` with targets
-`EF_G`. The structural GNN benchmarked here predicts energy directly from an
-unrelaxed input and had not previously been submitted.
+leaderboard under the name
+[GNoME](https://matbench-discovery.materialsproject.org/models/gnome) is the other
+one — a NequIP-type interatomic potential that performs structure relaxation,
+submitted as `IS2RE-SR` with targets `EF_G`. The structural GNN benchmarked here
+predicts energy directly from an unrelaxed input and had not previously been
+submitted.
+
+---
+
+## Results
+
+WBM test set, 256,963 structures. Metrics below are
+**ingestion-recomputed by the Matbench Discovery pipeline** and are authoritative
+(they supersede any earlier figures from local evaluation).
+
+| Subset            | F1    | DAF   | Precision | Recall | MAE (eV/atom) | RMSE  | R²    |
+| ----------------- | ----- | ----- | --------- | ------ | ------------- | ----- | ----- |
+| Full test set     | 0.566 | 2.522 | 0.433     | 0.818  | 0.084         | 0.141 | 0.387 |
+| Unique prototypes | 0.558 | 2.753 | 0.421     | 0.826  | 0.086         | 0.141 | 0.412 |
+
+Confusion matrix, full test set: TP 36,061 · FP 47,274 · TN 165,597 · FN 8,031 ·
+26 missing predictions.
+
+### Ranking among IS2E direct-prediction models
+
+The Matbench Discovery leaderboard includes models of all types (IS2RE-SR with
+structure relaxation, IS2E direct predictors, etc.). The overall ranking (45th of
+~52) mixes models that perform relaxation at inference — scoring F1 0.80–0.93 — with
+direct predictors that skip relaxation entirely.
+
+Within the **IS2E direct-prediction cohort** (`test_task: IS2E`, `targets: E`), the
+picture is different. These six models all predict formation energy from an
+unrelaxed input with no relaxation step:
+
+| Model       | F1    | MAE (eV/atom) | R²     | Leaderboard |
+| ----------- | ----- | ------------- | ------ | ----------- |
+| ESNet       | 0.568 | 0.107         | −0.148 | [link](https://matbench-discovery.materialsproject.org/models/esnet) |
+| **EMA-GNN** | **0.566** | **0.084** | **0.387** | [link](https://matbench-discovery.materialsproject.org/models/ema-gnn) |
+| ALIGNN      | 0.565 | 0.092         | 0.274  | [link](https://matbench-discovery.materialsproject.org/models/alignn) |
+| MEGNet      | 0.513 | 0.128         | −0.277 | [link](https://matbench-discovery.materialsproject.org/models/megnet) |
+| CGCNN       | 0.510 | 0.135         | −0.624 | [link](https://matbench-discovery.materialsproject.org/models/cgcnn) |
+| Voronoi RF  | 0.344 | 0.141         | −0.316 | [link](https://matbench-discovery.materialsproject.org/models/voronoi-rf) |
+
+EMA-GNN ranks **3rd by F1** (within 0.003 of both ESNet and ALIGNN) and **1st by
+MAE and R²** in this cohort. Every value in this table is sourced from the
+corresponding model's YAML in the
+[Matbench Discovery repository](https://github.com/janosh/matbench-discovery/tree/main/models)
+and can be independently verified.
 
 ---
 
 ## Model
 
-| Property | Value |
-|---|---|
-| Task | `IS2E` — initial structure to energy |
-| Target | Formation energy per atom (`E`) |
+| Property     | Value                                      |
+| ------------ | ------------------------------------------ |
+| Task         | `IS2E` — initial structure to energy       |
+| Target       | Formation energy per atom (`E`)            |
 | Training set | Materials Project 2022, relaxed structures |
-| Parameters | 2,209,793 |
-| Ensemble | 6 independently seeded models |
+| Parameters   | 2,209,793                                  |
+| Ensemble     | 6 independently seeded models              |
 
 Each message-passing block updates edge, node and global features in sequence.
 Edge-to-node messages are normalized by the dataset-average adjacency, so message
 magnitude does not scale with coordination number.
 
-```
+```text
 hidden_dim              256
 n_layers                3
 graph cutoff            4.0 Å
@@ -49,7 +98,7 @@ readout                 linear projection of final global feature to scalar
 
 ### Training recipe
 
-```
+```text
 optimizer               Adam
 learning rate           5.5e-4, LinearLR to 0.1× final
 epochs                  500
@@ -99,12 +148,12 @@ Three single-seed runs at 200 epochs on the earlier training loop (no EMA, no
 gradient accumulation, early stopping enabled), each removing one component with
 everything else fixed. Held-out Materials Project MAE, meV/atom:
 
-| Configuration | MAE | Parameters |
-|---|---|---|
-| Full configuration | 24.42 | 2,209,793 |
-| Two message-passing layers | 25.14 | 1,487,361 |
-| Hidden dimension 128 | 25.19 | 564,225 |
-| Adjacency normalization removed | 25.44 | 2,209,793 |
+| Configuration                   | MAE   | Parameters |
+| ------------------------------- | ----- | ---------- |
+| Full configuration              | 24.42 | 2,209,793  |
+| Two message-passing layers      | 25.14 | 1,487,361  |
+| Hidden dimension 128            | 25.19 | 564,225    |
+| Adjacency normalization removed | 25.44 | 2,209,793  |
 
 Every removal degraded accuracy, and removing adjacency normalization was the most
 damaging despite leaving parameter count unchanged. The margins are small, however,
@@ -167,7 +216,7 @@ problem, not a recalibration problem.
 
 The classification metric itself turned out to be wrong. See
 [Note on scoring](#note-on-scoring) below. Correcting it moved discovery F1 from
-approximately 0.34 to 0.559 with no change to the model.
+approximately 0.34 to 0.56 with no change to the model.
 
 ### 11. MLIP pre-relaxation
 
@@ -177,31 +226,15 @@ retraining. Both MACE-MP-0 and CHGNet were evaluated. Results below.
 
 ### 12. Leaderboard submission
 
-Predictions, checkpoints and metadata prepared for Matbench Discovery. The
-prediction file was independently regenerated on a second machine from the archived
-checkpoints and re-scored, reproducing the submitted metrics to four decimal places.
+Predictions, checkpoints and metadata submitted to the Matbench Discovery
+leaderboard via [PR #387](https://github.com/janosh/matbench-discovery/pull/387),
+reviewed and merged on 2026-08-12. The prediction file was independently regenerated
+on a second machine from the archived checkpoints and re-scored, reproducing the
+submitted metrics to four decimal places.
 
 ---
 
-## Results
-
-WBM test set, 256,963 structures, scored with
-`matbench_discovery.metrics.stable_metrics`.
-
-| Subset | F1 | DAF | Precision | Recall | MAE (eV/atom) | RMSE | R² |
-|---|---|---|---|---|---|---|---|
-| Full test set | 0.5592 | 2.5455 | 0.4242 | 0.8203 | 0.0844 | 0.1409 | 0.3873 |
-| Unique prototypes | 0.5556 | 2.7365 | 0.4183 | 0.8269 | 0.0864 | 0.1412 | 0.4122 |
-| Most stable 10k | 0.8325 | 4.6647 | 0.7131 | 1.0000 | 0.1145 | 0.1607 | 0.5451 |
-
-Confusion matrix, full test set: TP 35,131 · FP 47,681 · TN 166,457 · FN 7,694 ·
-2 missing predictions.
-
-Recall substantially exceeds precision. The model finds most genuinely stable
-materials but over-predicts stability, which is the expected signature of a direct
-energy predictor operating on unrelaxed inputs.
-
-### Note on scoring
+## Note on scoring
 
 Two ways of turning a formation-energy prediction into a stability classification
 exist, and they produce very different numbers.
@@ -230,14 +263,6 @@ The implementation is `scripts/eval_discovery_mbd.py`, which calls
 `matbench_discovery.metrics.stable_metrics` directly. An earlier script in this
 repository (`scripts/f1_wbm.py`) used the naive method and is superseded.
 
-### A note on earlier regression figures
-
-Intermediate stages of this project reported WBM regression metrics from a separate
-evaluation path (`scripts/eval_wbm_ensemble.py`) that did not apply the benchmark's
-outlier mask or match against the same reference subset. Those numbers tracked
-relative improvements between stages correctly but are not directly comparable to
-the Matbench Discovery figures above. The table above is authoritative.
-
 ---
 
 ## MLIP pre-relaxation
@@ -250,11 +275,11 @@ is a preprocessing step in front of the unchanged ensemble
 
 Relaxed-structure predictions are committed under `runs/ensemble_relaxed/`.
 
-| Input | MAE (eV/atom) | R² | F1 |
-|---|---|---|---|
-| Unrelaxed (submitted) | 0.0844 | 0.3873 | 0.5592 |
-| MACE-MP-0 relaxed | 0.0794 | 0.4850 | 0.5601 |
-| CHGNet relaxed | 0.0794 | 0.4988 | 0.5580 |
+| Input                 | MAE (eV/atom) | R²    | F1    |
+| --------------------- | ------------- | ----- | ----- |
+| Unrelaxed (submitted) | 0.084         | 0.387 | 0.566 |
+| MACE-MP-0 relaxed     | 0.079         | 0.485 | 0.560 |
+| CHGNet relaxed        | 0.079         | 0.499 | 0.558 |
 
 Pre-relaxation improves regression substantially — MAE drops from 0.084 to 0.079
 and R² rises from 0.387 to 0.485–0.499 — while leaving F1 essentially unchanged at
@@ -290,7 +315,7 @@ analysis/               Per-stage analysis scripts (run(repo_root, show) -> summ
   stage1_ensemble/
 configs/
 models/
-  ema_gnn/              Matbench Discovery submission metadata
+  ema-gnn/              Matbench Discovery submission metadata
 notebooks/
   analysis_gnome_struct.ipynb       Main analysis notebook
   bias_correction_diagnostic.ipynb
@@ -318,7 +343,7 @@ run_ensemble.ps1        Orchestrates 6-seed ensemble training
 
 Checkpoints and the submitted prediction file are archived on Figshare:
 
-**<https://doi.org/10.6084/m9.figshare.33111509>**
+**[https://doi.org/10.6084/m9.figshare.33111509](https://doi.org/10.6084/m9.figshare.33111509)**
 
 - Prediction CSV — WBM discovery predictions, `e_form_per_atom`, 256,963 rows
 - Checkpoint archive — six EMA-averaged seed checkpoints (`seed_0/best.pt` …
@@ -332,6 +357,18 @@ Checkpoints are released under CC-BY-4.0. Code in this repository is MIT-license
 Loading a checkpoint requires `strict=False`, because `avg_adjacency` is registered
 as a buffer but supplied through the constructor from the checkpoint's `stats` dict
 and is therefore absent from `model_state`.
+
+---
+
+## Links
+
+| Resource | URL |
+| --- | --- |
+| Leaderboard page | [matbench-discovery.materialsproject.org/models/ema-gnn](https://matbench-discovery.materialsproject.org/models/ema-gnn) |
+| Merged PR | [janosh/matbench-discovery#387](https://github.com/janosh/matbench-discovery/pull/387) |
+| Figshare DOI | [10.6084/m9.figshare.33111509](https://doi.org/10.6084/m9.figshare.33111509) |
+| Reference paper | [Merchant et al., Nature 624 (2023)](https://doi.org/10.1038/s41586-023-06735-9) |
+| Matbench Discovery paper | [Riebesell et al., Nat Mach Intell 7 (2025)](https://doi.org/10.1038/s42256-025-01055-1) |
 
 ---
 
