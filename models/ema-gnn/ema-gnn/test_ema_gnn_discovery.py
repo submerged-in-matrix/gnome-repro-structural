@@ -297,79 +297,87 @@ def run_ensemble(
 # ---------------------------------------------------------------------------
 # Metrics
 # ---------------------------------------------------------------------------
+# Column names — must match eval_discovery_mbd.py exactly.
+_EACH_TRUE = "e_above_hull_mp2020_corrected_ppd_mp"
+_E_FORM_DFT = "e_form_per_atom_mp2020_corrected"
+_UNIQ_PROTO = "unique_prototype"
+_MAX_ERROR = 5.0
+
+WBM_SUMMARY_URL = "https://ndownloader.figshare.com/files/44225498"
+WBM_SUMMARY_PATH = CACHE_DIR / "2023-12-13-wbm-summary.csv.gz"
+
+
 def compute_metrics(df_pred: pd.DataFrame) -> dict:
     """Compute Matbench Discovery metrics against WBM ground truth.
 
-    Uses the corrected MP2020 reference energies and convex hull distances.
-    Formula: e_above_hull_pred = e_above_hull_true + (e_form_pred - e_form_dft)
+    Mirrors scripts/eval_discovery_mbd.py: hull-displacement scoring with
+    outlier masking, three subsets (full_test_set, unique_prototypes,
+    most_stable_10k), using matbench_discovery.metrics.stable_metrics.
     """
-    # Pre-download via curl to bypass the Figshare WAF that blocks urllib
-    _download(
-        "https://ndownloader.figshare.com/files/44225498",
-        Path.home() / ".cache" / "matbench-discovery" / "wbm" / "2023-12-13-wbm-summary.csv.gz",
-        label="wbm-summary.csv.gz",
-    )
-    from matbench_discovery.data import df_wbm
     from matbench_discovery.metrics import stable_metrics
 
-    # Align predictions with ground truth by material_id.
-    df = df_wbm.join(df_pred, how="inner")
-    n_missing = len(df_wbm) - len(df)
-    print(f"  aligned {len(df)} predictions ({n_missing} missing)")
+    # Download WBM summary via curl (bypasses Figshare WAF).
+    _download(WBM_SUMMARY_URL, WBM_SUMMARY_PATH, label="wbm-summary.csv.gz")
+    summary = pd.read_csv(WBM_SUMMARY_PATH).set_index("material_id")
 
-    # Corrected reference columns.
-    col_hull = "e_above_hull_mp2020_corrected_ppd_mp"
-    col_eform_dft = "e_form_per_atom_mp2020_corrected"
+    # Align predictions with ground truth.
+    common = summary.index.intersection(df_pred.index)
+    print(f"  reference : {len(summary):,}")
+    print(f"  predictions: {len(df_pred):,}")
+    print(f"  matched    : {len(common):,}")
+    if len(common) == 0:
+        raise ValueError("no material_id overlap")
 
-    e_above_hull_true = df[col_hull].values
-    e_form_pred = df["e_form_per_atom"].values
-    e_form_dft = df[col_eform_dft].values
+    ref = summary.loc[common]
+    e_form_pred = df_pred.loc[common, "e_form_per_atom"].values
+    e_form_dft = ref[_E_FORM_DFT].values
+    each_true = ref[_EACH_TRUE].values
+
+    # Mask outliers (leaderboard convention).
+    error = np.abs(e_form_pred - e_form_dft)
+    outlier_mask = error > _MAX_ERROR
+    n_outliers = int(outlier_mask.sum())
+    print(f"  masked (>{_MAX_ERROR} eV/atom error): {n_outliers:,}")
 
     # Convert formation-energy prediction to hull-distance prediction.
-    e_above_hull_pred = e_above_hull_true + (e_form_pred - e_form_dft)
+    each_pred = each_true + e_form_pred - e_form_dft
+    each_pred[outlier_mask] = np.nan
 
-    # Classification: stable = below hull (pred <= 0).
-    true_stable = e_above_hull_true <= 0
-    pred_stable = e_above_hull_pred <= 0
+    # --- full test set ---
+    full = stable_metrics(each_true, each_pred)
 
-    tp = int(np.sum(true_stable & pred_stable))
-    fp = int(np.sum(~true_stable & pred_stable))
-    fn = int(np.sum(true_stable & ~pred_stable))
-    tn = int(np.sum(~true_stable & ~pred_stable))
+    # --- unique prototypes ---
+    uniq_mask = ref[_UNIQ_PROTO].astype(bool).values
+    uniq = stable_metrics(each_true[uniq_mask], each_pred[uniq_mask])
 
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = (
-        2 * precision * recall / (precision + recall)
-        if (precision + recall) > 0
-        else 0.0
-    )
+    # --- most stable 10k (among unique prototypes) ---
+    uniq_each_true = each_true[uniq_mask]
+    uniq_each_pred = each_pred[uniq_mask]
+    order = np.argsort(uniq_each_pred, kind="stable")  # NaN sorts last
+    top10k = order[:10_000]
+    stable10k = stable_metrics(uniq_each_true[top10k], uniq_each_pred[top10k])
 
-    # Regression metrics on formation energy.
-    errors = e_form_pred - e_form_dft
-    mae = float(np.nanmean(np.abs(errors)))
-    rmse = float(np.sqrt(np.nanmean(errors**2)))
+    # DAF denominator: unique-prototype prevalence, not subset prevalence.
+    uniq_prevalence = float((uniq_each_true <= 0).mean())
+    stable10k["DAF"] = stable10k["Precision"] / uniq_prevalence
+    print(f"  uniq-proto prevalence (DAF denominator): {uniq_prevalence:.4f}")
 
-    ss_res = np.nansum(errors**2)
-    ss_tot = np.nansum((e_form_dft - np.nanmean(e_form_dft)) ** 2)
-    r2 = 1 - ss_res / ss_tot if ss_tot > 0 else float("nan")
+    # --- Print ---
+    results = {}
+    for subset_name, metrics in [
+        ("full_test_set", full),
+        ("unique_prototypes", uniq),
+        ("most_stable_10k", stable10k),
+    ]:
+        print(f"\n  --- {subset_name} ---")
+        for key in ("F1", "DAF", "Precision", "Recall", "Accuracy",
+                     "MAE", "RMSE", "R2"):
+            print(f"    {key:10s}: {metrics[key]:.4f}")
+        results[subset_name] = {k: round(float(v), 4) for k, v in metrics.items()}
 
-    results = {
-        "n_predictions": len(df),
-        "n_missing": n_missing,
-        "MAE_eV_per_atom": round(mae, 4),
-        "RMSE_eV_per_atom": round(rmse, 4),
-        "R2": round(r2, 4),
-        "F1": round(f1, 4),
-        "Precision": round(precision, 4),
-        "Recall": round(recall, 4),
-        "TP": tp,
-        "FP": fp,
-        "TN": tn,
-        "FN": fn,
-    }
+    results["n_matched"] = len(common)
+    results["n_outliers_masked"] = n_outliers
     return results
-
 
 # ---------------------------------------------------------------------------
 # Main
@@ -395,41 +403,39 @@ def main():
     args = parser.parse_args()
     device = torch.device(args.device)
 
-    # # 1. Download checkpoints and WBM structures.
-    # cache_dir = download_checkpoints()
-    # wbm_path = download_wbm_structures()
+    # 1. Download checkpoints and WBM structures.
+    cache_dir = download_checkpoints()
+    wbm_path = download_wbm_structures()
 
-    # # 2. Load models.
-    # models, stats = load_models(cache_dir, device)
+    # 2. Load models.
+    models, stats = load_models(cache_dir, device)
 
-    # # 3. Load WBM structures.
-    # structures = load_wbm_structures(wbm_path, limit=args.limit)
+    # 3. Load WBM structures.
+    structures = load_wbm_structures(wbm_path, limit=args.limit)
 
-    # # 4. Run inference.
-    # df_pred = run_ensemble(models, structures, stats, device)
-    # n_valid = df_pred["e_form_per_atom"].notna().sum()
-    # n_nan = df_pred["e_form_per_atom"].isna().sum()
-    # print(f"\nPredictions: {n_valid} valid, {n_nan} failed")
+    # 4. Run inference.
+    df_pred = run_ensemble(models, structures, stats, device)
+    n_valid = df_pred["e_form_per_atom"].notna().sum()
+    n_nan = df_pred["e_form_per_atom"].isna().sum()
+    print(f"\nPredictions: {n_valid} valid, {n_nan} failed")
 
-    # # 5. Write CSV.
-    # from matbench_discovery import today
+    # 5. Write CSV.
+    from matbench_discovery import today
 
-    # out_path = args.out or f"{today}-discovery.csv.gz"
-    # df_pred.to_csv(out_path)
-    # size_mb = os.path.getsize(out_path) / 1e6
-    # print(f"Wrote {out_path} ({size_mb:.1f} MB)")
+    out_path = args.out or f"{today}-discovery.csv.gz"
+    df_pred.to_csv(out_path)
+    size_mb = os.path.getsize(out_path) / 1e6
+    print(f"Wrote {out_path} ({size_mb:.1f} MB)")
 
+
+    
     # 6. Metrics (skip for --limit runs).
-    current_path = "2026-08-03-discovery.csv.gz"
-    df_pred = pd.read_csv(current_path, index_col="material_id")
-
     if args.limit is None:
         print("\nComputing metrics ...")
         metrics = compute_metrics(df_pred)
-        for k, v in metrics.items():
-            print(f"  {k}: {v}")
     else:
         print(f"\nSkipping metrics (--limit {args.limit} active)")
+    
 
 
 if __name__ == "__main__":
